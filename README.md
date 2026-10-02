@@ -24,7 +24,7 @@ Läuft auf dem Switch die quelloffene Firmware [RTLPlayground](https://github.co
 | HORACO HC-SWTGW218AS | 8 × GbE | 2 × 10G | ☑️ Laut Originalprojekt bestätigt |
 | HORACO HC-SWTGW215AS | 5 × GbE | — | ☑️ Laut Originalprojekt bestätigt |
 | OEM-Switches mit Realtek RTL8373 | unterschiedlich | — | ❔ Wahrscheinlich |
-| Switches mit [RTLPlayground](#rtlplayground)-Firmware | unterschiedlich | je nach Gerät | 🧪 Neu in 2.1.0 |
+| Switches mit [RTLPlayground](#rtlplayground)-Firmware | unterschiedlich | je nach Gerät | ✅ Mit ZX-SWTGW218AS getestet (ab 2.1.0) |
 
 > Wenn dein Switch eine Weboberfläche auf Port 80 mit Benutzername/Passwort-Anmeldung hat, funktioniert er sehr wahrscheinlich. Eröffne ein Issue, damit er in die Tabelle aufgenommen wird.
 
