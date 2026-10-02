@@ -1,0 +1,1 @@
+{"ip_address":"192.0.2.21","ip_gateway":"192.0.2.1","ip_netmask":"255.255.255.0","syslog_server":"0.0.0.0:514","session_timeout":200,"mac_address":"00:00:5e:00:53:21","hostname":"rtlplayground","sw_ver":"v0.1.0-f0aea3d-de.89fcc68","build_date":"2026-10-02 18:59:13","hw_ver":"SWTGW218AS 8+1 Managed Switch","chip_temp":"46.2 C","flash_size":"2 MB","sfp_slot_0":""}

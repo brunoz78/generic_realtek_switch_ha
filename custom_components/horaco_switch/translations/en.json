@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Connect to your Managed Switch",
-        "description": "Works with HORACO HC-SWTGW218AS, HC-SWTGW215AS, keepLink KP9000 and compatible OEM switches. Default credentials are admin / admin.",
+        "description": "Works with HORACO HC-SWTGW218AS, HC-SWTGW215AS, keepLink KP9000 and compatible OEM switches, with the original firmware or RTLPlayground (detected automatically). Default credentials: admin / admin; RTLPlayground only uses the password (default 1234).",
         "data": {
           "host": "Switch IP Address",
           "port": "HTTP Port",
@@ -64,6 +64,9 @@
       },
       "ports_total": {
         "name": "Ports Total"
+      },
+      "temperature": {
+        "name": "Temperature"
       },
       "duplex": {
         "name": "Port {port} Duplex",

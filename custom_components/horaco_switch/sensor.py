@@ -21,6 +21,7 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import UnitOfTemperature
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity import DeviceInfo
@@ -95,7 +96,18 @@ SWITCH_SENSORS: tuple[SwitchSensorDesc, ...] = (
         icon="mdi:ethernet",
         value_fn=lambda d: len(d.ports),
     ),
+    SwitchSensorDesc(
+        key="temperature",
+        translation_key="temperature",
+        device_class=SensorDeviceClass.TEMPERATURE,
+        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=lambda d: d.temperature,
+    ),
 )
+
+# Switch sensors that exist only on firmware reporting the value
+_OPTIONAL_SWITCH_SENSORS = {"uptime", "temperature"}
 
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -144,7 +156,7 @@ PORT_SENSORS: tuple[PortSensorDesc, ...] = (
         icon="mdi:transfer",
         device_class=SensorDeviceClass.ENUM,
         options=["full", "half"],
-        value_fn=lambda p: p.duplex.lower() or None,
+        value_fn=lambda p: (p.duplex or "").lower() or None,
     ),
     PortSensorDesc(
         key="tx_bytes",
@@ -205,9 +217,12 @@ PORT_SENSORS: tuple[PortSensorDesc, ...] = (
         icon="mdi:swap-horizontal",
         device_class=SensorDeviceClass.ENUM,
         options=["enabled", "disabled"],
-        value_fn=lambda p: p.flow_control.lower() or None,
+        value_fn=lambda p: (p.flow_control or "").lower() or None,
     ),
 )
+
+# Port sensors that exist only where the firmware reports the value (None = not reported)
+_OPTIONAL_PORT_SENSORS = {"tx_bytes", "rx_bytes", "tx_errors", "rx_errors", "duplex", "flow_control"}
 
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -225,10 +240,10 @@ async def async_setup_entry(
     data = coordinator.data
     ent_reg = er.async_get(hass)
 
-    # Switch-level sensors (skip uptime on firmware that doesn't report it)
+    # Switch-level sensors (skip uptime/temperature on firmware that doesn't report them)
     for desc in SWITCH_SENSORS:
-        if desc.key == "uptime" and data and not data.uptime:
-            # Remove the entry left behind by earlier versions, which always created it
+        if desc.key in _OPTIONAL_SWITCH_SENSORS and data and desc.value_fn(data) is None:
+            # Remove an entry left behind by earlier versions or the other firmware
             stale = ent_reg.async_get_entity_id(
                 "sensor", DOMAIN, f"{DOMAIN}_{coordinator.scraper.ip}_{desc.key}"
             )
@@ -241,9 +256,18 @@ async def async_setup_entry(
     if data:
         for port in data.ports:
             for desc in PORT_SENSORS:
-                # Byte and error counters only where the switch actually reports them
-                if desc.key in ("tx_bytes", "rx_bytes", "tx_errors", "rx_errors") \
-                        and getattr(port, desc.key) is None:
+                # Only what the firmware actually reports: bytes and errors are
+                # missing on some CGI firmware, duplex and flow control on RTLPlayground
+                if desc.key in _OPTIONAL_PORT_SENSORS and getattr(port, desc.key) is None:
+                    # Duplex and flow control vanish for good after flashing
+                    # RTLPlayground; counters may just be missing for one poll
+                    if desc.key in ("duplex", "flow_control"):
+                        stale = ent_reg.async_get_entity_id(
+                            "sensor", DOMAIN,
+                            f"{DOMAIN}_{coordinator.scraper.ip}_port{port.port}_{desc.key}",
+                        )
+                        if stale:
+                            ent_reg.async_remove(stale)
                     continue
                 entities.append(PortLevelSensor(coordinator, port.port, desc))
 
@@ -320,7 +344,7 @@ class PortLevelSensor(CoordinatorEntity[HoracoCoordinator], SensorEntity):
         p = self._port()
         if not p:
             return {}
-        return {
+        attrs = {
             "link":         p.link,
             "speed":        p.speed,
             "duplex":       p.duplex,
@@ -332,3 +356,8 @@ class PortLevelSensor(CoordinatorEntity[HoracoCoordinator], SensorEntity):
             "tx_bytes":     p.tx_bytes,
             "rx_bytes":     p.rx_bytes,
         }
+        if p.name:
+            attrs["port_name"] = p.name
+        if p.sfp_module:
+            attrs["sfp_module"] = p.sfp_module
+        return attrs

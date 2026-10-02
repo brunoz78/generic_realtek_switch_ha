@@ -54,8 +54,8 @@ class PortData:
     status: str               # "up" | "down" | "disable"
     link: str                 # "Link Up" | "Link Down" | "Disabled"
     speed: str                # "100M" | "1000M" | "10G" | "Disabled" | ""
-    duplex: str               # "Full" | "Half" | ""
-    flow_control: str         # "Enabled" | "Disabled" | ""
+    duplex: str | None        # "Full" | "Half" | "" — None: firmware doesn't report it
+    flow_control: str | None  # "Enabled" | "Disabled" | "" — None: not reported
     tx_bytes: int | None = None   # None = switch reports no byte counters
     rx_bytes: int | None = None
     # Counters stay None until /port.cgi?page=stats was read successfully.
@@ -65,6 +65,8 @@ class PortData:
     rx_packets: int | None = None
     tx_errors: int | None = None  # TxBadPkt
     rx_errors: int | None = None  # RxBadPkt
+    name: str = ""                # port name set on the switch (RTLPlayground)
+    sfp_module: str = ""          # vendor and model of a plugged-in SFP module
 
 
 @dataclass
@@ -78,6 +80,8 @@ class SwitchData:
     ports: list[PortData] = field(default_factory=list)
     timestamp: float = field(default_factory=time.time)
     available: bool = True
+    temperature: float | None = None  # chip temperature in °C, if reported
+    hostname: str = ""
 
 
 class HoracoScraper:

@@ -10,6 +10,8 @@
 
 Die Integration meldet sich an der Weboberfläche des Switches an und liest Geräte-Info, Port-Status und Zähler direkt von dessen Seiten aus. Sie erkennt dabei zwei Seitenaufbauten der Firmware: einen, bei dem die Port-Daten auf der Info-Seite stehen, und einen, bei dem sie auf der Port-Seite stehen (z. B. keepLink KP-9000-9XHML-X und HORACO ZX-SWTGW215AS). Pro Switch entsteht ein Gerät; mehrere Switches lassen sich parallel einbinden. Die Namen der Entitäten erscheinen in der Sprache von Home Assistant (Deutsch oder Englisch).
 
+Läuft auf dem Switch die quelloffene Firmware [RTLPlayground](https://github.com/logicog/RTLPlayground), erkennt die Integration das automatisch und liest stattdessen deren JSON-Schnittstelle — siehe [RTLPlayground](#rtlplayground).
+
 ---
 
 ## Unterstützte Geräte
@@ -22,6 +24,7 @@ Die Integration meldet sich an der Weboberfläche des Switches an und liest Ger�
 | HORACO HC-SWTGW218AS | 8 × GbE | 2 × 10G | ☑️ Laut Originalprojekt bestätigt |
 | HORACO HC-SWTGW215AS | 5 × GbE | — | ☑️ Laut Originalprojekt bestätigt |
 | OEM-Switches mit Realtek RTL8373 | unterschiedlich | — | ❔ Wahrscheinlich |
+| Switches mit [RTLPlayground](#rtlplayground)-Firmware | unterschiedlich | je nach Gerät | 🧪 Neu in 2.1.0 |
 
 > Wenn dein Switch eine Weboberfläche auf Port 80 mit Benutzername/Passwort-Anmeldung hat, funktioniert er sehr wahrscheinlich. Eröffne ein Issue, damit er in die Tabelle aufgenommen wird.
 
@@ -80,6 +83,7 @@ Pro Switch gibt es **ein Gerät** mit dem Namen `Switch <IP-Adresse>`, z. B. `Sw
 | Ports gesamt | Sensor | Anzahl physischer Ports |
 | Neustart | Taste | Startet den Switch neu |
 | Betriebszeit | Sensor | z. B. `3d 14h 22m` — **nur** wenn die Firmware die Laufzeit meldet (KP-9000-9XHML-X und ZX-SWTGW215AS tun das nicht) |
+| Temperatur | Sensor | Chip-Temperatur in °C — **nur** mit RTLPlayground |
 
 ### Pro Port *(N = 1 … Anzahl Ports)*
 
@@ -154,6 +158,30 @@ Die **Neustart**-Taste sendet `POST /reboot.cgi` mit `cmd=reboot`.
 Jede Anfrage schickt den HTTP-Header `Referer` mit. Neuere Firmware (z. B. V100.9.9.1.7 auf Hardware V3.1) liefert ohne diesen Header eine leere Seite — deshalb bleibt eine direkt in die Adresszeile eingegebene URL wie `http://<ip>/info.cgi` dort weiss. Ältere Firmware (z. B. V1.9 auf Hardware V1.1) prüft das nicht.
 
 Zwischen den einzelnen Anfragen liegt eine Pause von 0,4 s, damit der Mikrocontroller des Switches nicht überlastet wird. Bricht der Switch eine Verbindung ohne Antwort ab (kommt bei manchen Firmware-Versionen gelegentlich vor), wird die Anfrage bis zu dreimal wiederholt.
+
+---
+
+## RTLPlayground
+
+[RTLPlayground](https://github.com/logicog/RTLPlayground) ist eine quelloffene Ersatz-Firmware für Switches mit Realtek RTL8372/RTL8373. Die Integration erkennt sie beim Einrichten und bei jedem Start von Home Assistant an der Anmeldeseite. Wird ein bereits eingebundener Switch umgeflasht, stellt sie nach einem Neustart von Home Assistant selbst um — vorausgesetzt, IP-Adresse und Passwort sind gleich geblieben; sonst den Switch in Home Assistant löschen und neu hinzufügen.
+
+**Einrichtung:** wie oben. RTLPlayground kennt keinen Benutzernamen, das Feld wird ignoriert; das Passwort ist ab Werk `1234`.
+
+**Was anders ist:**
+
+| | Original-Firmware | RTLPlayground |
+|---|---|---|
+| Port N, Gesendete/Empfangene Pakete, Sende-/Empfangsfehler | ✅ | ✅ |
+| Port N Duplex, Port N Flusskontrolle | ✅ | — (meldet die Firmware nicht) |
+| Temperatur des Switch-Chips | — | ✅ |
+| Port-Name und SFP-Modul | — | als Attribute `port_name` und `sfp_module` am Sensor „Port N“ |
+| Firmware | z. B. `V1.9.1` | z. B. `RTLPlayground v0.1.0-f0aea3d` |
+
+Ein SFP-Steckplatz ohne Modul erscheint als `Getrennt`, nicht als `Deaktiviert`.
+
+**Eine Sitzung zugleich:** Die Firmware kennt nur eine angemeldete Sitzung. Meldet man sich im Browser an, verliert Home Assistant seine Sitzung. Die Integration erkennt das und **pausiert die Abfrage dann für 5 Minuten** (die Entitäten sind so lange „Nicht verfügbar“), damit die Weboberfläche benutzbar bleibt; danach meldet sie sich wieder an — und meldet damit den Browser ab.
+
+**Abfrage:** `POST /login` mit dem Passwort → Sitzungs-Cookie; danach `GET /information.json` (Modell, MAC, Firmware, Temperatur) und `GET /status.json` (Link, Geschwindigkeit, Paket- und Fehlerzähler pro Port). Die Neustart-Taste ruft `GET /reset` auf.
 
 ---
 

@@ -1,7 +1,9 @@
 """HORACO / OEM Managed Switch — Home Assistant Integration.
 
-Talks directly to the switch CGI interface, no intermediate service needed.
-Based on the scraping logic from https://github.com/byte4geek/switch-dashboard
+Talks directly to the switch, no intermediate service needed: to the CGI
+pages of the original firmware (scraping logic based on
+https://github.com/byte4geek/switch-dashboard) or to the JSON interface of
+the RTLPlayground firmware.
 """
 from __future__ import annotations
 
@@ -17,7 +19,15 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .const import DEFAULT_SCAN_INTERVAL, DOMAIN, object_id
+from .const import (
+    CONF_FIRMWARE,
+    DEFAULT_SCAN_INTERVAL,
+    DOMAIN,
+    FIRMWARE_CGI,
+    FIRMWARE_RTLPLAYGROUND,
+    object_id,
+)
+from .rtlplayground import RtlPlaygroundClient, detect_rtlplayground
 from .scraper import HoracoScraper, SwitchData
 
 _LOGGER = logging.getLogger(__name__)
@@ -30,13 +40,36 @@ PLATFORMS: list[Platform] = [
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up HORACO Switch from a config entry."""
-    scraper = HoracoScraper(
-        session=async_get_clientsession(hass),
-        ip=entry.data[CONF_HOST],
-        username=entry.data[CONF_USERNAME],
-        password=entry.data[CONF_PASSWORD],
-        http_port=entry.data.get(CONF_PORT, 80),
-    )
+    session = async_get_clientsession(hass)
+    ip = entry.data[CONF_HOST]
+    http_port = entry.data.get(CONF_PORT, 80)
+
+    # Re-check the firmware on every start, so a switch flashed with
+    # RTLPlayground (or back to the original) keeps working after a reload.
+    rtl = await detect_rtlplayground(session, ip, http_port)
+    firmware = entry.data.get(CONF_FIRMWARE, FIRMWARE_CGI)
+    if rtl is not None:
+        detected = FIRMWARE_RTLPLAYGROUND if rtl else FIRMWARE_CGI
+        if detected != firmware:
+            _LOGGER.info("[%s] Firmware changed: %s → %s", ip, firmware, detected)
+            hass.config_entries.async_update_entry(
+                entry, data={**entry.data, CONF_FIRMWARE: detected}
+            )
+            firmware = detected
+
+    scraper: HoracoScraper | RtlPlaygroundClient
+    if firmware == FIRMWARE_RTLPLAYGROUND:
+        scraper = RtlPlaygroundClient(
+            session=session, ip=ip, password=entry.data[CONF_PASSWORD], http_port=http_port,
+        )
+    else:
+        scraper = HoracoScraper(
+            session=session,
+            ip=ip,
+            username=entry.data[CONF_USERNAME],
+            password=entry.data[CONF_PASSWORD],
+            http_port=http_port,
+        )
 
     coordinator = HoracoCoordinator(hass, scraper, entry)
     await coordinator.async_config_entry_first_refresh()
@@ -147,7 +180,7 @@ class HoracoCoordinator(DataUpdateCoordinator[SwitchData]):
     def __init__(
         self,
         hass: HomeAssistant,
-        scraper: HoracoScraper,
+        scraper: HoracoScraper | RtlPlaygroundClient,
         entry: ConfigEntry,
     ) -> None:
         self.scraper = scraper

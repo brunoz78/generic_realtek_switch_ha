@@ -11,7 +11,17 @@ from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-from .const import DEFAULT_PASSWORD, DEFAULT_PORT, DEFAULT_SCAN_INTERVAL, DEFAULT_USERNAME, DOMAIN
+from .const import (
+    CONF_FIRMWARE,
+    DEFAULT_PASSWORD,
+    DEFAULT_PORT,
+    DEFAULT_SCAN_INTERVAL,
+    DEFAULT_USERNAME,
+    DOMAIN,
+    FIRMWARE_CGI,
+    FIRMWARE_RTLPLAYGROUND,
+)
+from .rtlplayground import RtlPlaygroundClient, detect_rtlplayground
 from .scraper import HoracoScraper, SwitchData
 
 _LOGGER = logging.getLogger(__name__)
@@ -24,18 +34,30 @@ STEP_SCHEMA = vol.Schema({
 })
 
 
-async def _try_connect(hass: HomeAssistant, data: dict[str, Any]) -> SwitchData:
-    scraper = HoracoScraper(
-        session=async_get_clientsession(hass),
-        ip=data[CONF_HOST],
-        username=data[CONF_USERNAME],
-        password=data[CONF_PASSWORD],
-        http_port=data.get(CONF_PORT, DEFAULT_PORT),
-    )
+async def _try_connect(hass: HomeAssistant, data: dict[str, Any]) -> tuple[SwitchData, str]:
+    """Detect the firmware, log in once and return the snapshot and firmware type."""
+    session = async_get_clientsession(hass)
+    http_port = data.get(CONF_PORT, DEFAULT_PORT)
+    rtl = await detect_rtlplayground(session, data[CONF_HOST], http_port)
+    if rtl is None:
+        raise ConnectionError("cannot_connect")
+    scraper: HoracoScraper | RtlPlaygroundClient
+    if rtl:
+        scraper = RtlPlaygroundClient(
+            session=session, ip=data[CONF_HOST], password=data[CONF_PASSWORD], http_port=http_port,
+        )
+    else:
+        scraper = HoracoScraper(
+            session=session,
+            ip=data[CONF_HOST],
+            username=data[CONF_USERNAME],
+            password=data[CONF_PASSWORD],
+            http_port=http_port,
+        )
     result = await scraper.scrape()
     if not result.available:
         raise ConnectionError("cannot_connect")
-    return result
+    return result, FIRMWARE_RTLPLAYGROUND if rtl else FIRMWARE_CGI
 
 
 class HoracoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -46,7 +68,7 @@ class HoracoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         if user_input is not None:
             try:
-                sw = await _try_connect(self.hass, user_input)
+                sw, firmware = await _try_connect(self.hass, user_input)
             except ConnectionError:
                 errors["base"] = "cannot_connect"
             except Exception:
@@ -56,7 +78,9 @@ class HoracoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 await self.async_set_unique_id(user_input[CONF_HOST])
                 self._abort_if_unique_id_configured()
                 title = f"{sw.model} ({user_input[CONF_HOST]})"
-                return self.async_create_entry(title=title, data=user_input)
+                return self.async_create_entry(
+                    title=title, data={**user_input, CONF_FIRMWARE: firmware}
+                )
 
         return self.async_show_form(
             step_id="user",

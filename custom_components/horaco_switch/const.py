@@ -16,6 +16,16 @@ CGI_PORT_STATS = "/port.cgi?page=stats"
 CGI_PORT_CFG  = "/port.cgi"
 CGI_REBOOT    = "/reboot.cgi"
 
+# RTLPlayground firmware (JSON interface)
+CONF_FIRMWARE = "firmware"
+FIRMWARE_CGI = "cgi"
+FIRMWARE_RTLPLAYGROUND = "rtlplayground"
+RTL_LOGIN_PAGE = "/login.html"
+RTL_LOGIN  = "/login"
+RTL_INFO   = "/information.json"
+RTL_STATUS = "/status.json"
+RTL_RESET  = "/reset"
+
 def object_id(ip: str, suffix: str) -> str:
     """Language-independent object id, e.g. switch_10_0_1_4_port_1_duplex.
 
