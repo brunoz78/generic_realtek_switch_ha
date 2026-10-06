@@ -16,29 +16,35 @@ Läuft auf dem Switch die quelloffene Firmware [RTLPlayground](https://github.co
 
 ## Unterstützte Geräte
 
+### Mit der Original-Firmware
+
 | Modell | Ports | SFP+ | Status |
 |--------|-------|------|--------|
-| keepLink KP-9000-9XHML-X (HW V3.1, FW V100.9.9.1.7) | 8 × 2.5GbE | 1 × 10G | ✅ Mit dieser Version getestet |
-| HORACO ZX-SWTGW218AS (HW V1.1, FW V1.9.1) | 8 × 2.5GbE | 1 × 10G | ✅ Mit dieser Version getestet |
-| HORACO ZX-SWTGW215AS (HW V1.1, FW V1.9) | 5 × 2.5GbE | 1 × 10G | ✅ Mit dieser Version getestet |
+| keepLink KP-9000-9XHML-X (HW V3.1, FW V100.9.9.1.7) | 8 × 2.5GbE | 1 × 10G | ✅ Getestet |
+| HORACO ZX-SWTGW218AS (HW V1.1, FW V1.9.1) | 8 × 2.5GbE | 1 × 10G | ✅ Getestet |
+| HORACO ZX-SWTGW215AS (HW V1.1, FW V1.9) | 5 × 2.5GbE | 1 × 10G | ✅ Getestet |
 | keepLink KP9000-9XH-X | 8 × GbE | 1 × 10G | ☑️ Laut Originalprojekt bestätigt |
 | HORACO HC-SWTGW218AS | 8 × GbE | 2 × 10G | ☑️ Laut Originalprojekt bestätigt |
 | HORACO HC-SWTGW215AS | 5 × GbE | — | ☑️ Laut Originalprojekt bestätigt |
-| OEM-Switches mit Realtek RTL8373 | unterschiedlich | — | ❔ Wahrscheinlich |
-| Weitere Switches mit [RTLPlayground](#rtlplayground)-Firmware | unterschiedlich | je nach Gerät | ❔ Sehr wahrscheinlich, siehe unten |
 
-**Mit der Ersatz-Firmware [RTLPlayground](#rtlplayground)** (ab Version 2.1.0 der Integration):
+Andere Switches mit Realtek RTL8372/RTL8373 und derselben Weboberfläche (Anmeldung mit Benutzername und Passwort auf Port 80, Seiten `info.cgi` und `port.cgi`) funktionieren sehr wahrscheinlich auch.
+
+### Mit der Ersatz-Firmware [RTLPlayground](#rtlplayground)
+
+Ab Version 2.1.0 der Integration.
 
 | Modell | Ports | SFP+ | Status |
 |--------|-------|------|--------|
 | keepLink KP-9000-9XHML-X (HW V3.1) | 8 × 2.5GbE | 1 × 10G | ✅ Getestet |
-| keepLink KP-9000-9XHML-X (HW V3.2) | 8 × 2.5GbE | 1 × 10G | ☑️ RTLPlayground darauf getestet; gleiche Weboberfläche wie V3.1 |
+| keepLink KP-9000-9XHML-X (HW V3.2) | 8 × 2.5GbE | 1 × 10G | ☑️ Firmware darauf getestet, gleiche Weboberfläche wie V3.1 |
 | HORACO ZX-SWTGW218AS (HW V1.1) | 8 × 2.5GbE | 1 × 10G | ✅ Getestet |
 | HORACO ZX-SWTGW215AS (HW V1.1) | 5 × 2.5GbE | 1 × 10G | ✅ Getestet |
 
-Getestet mit RTLPlayground `v0.1.0-0e9c997`. Welche Switches RTLPlayground unterstützt, steht in der [Geräteliste des Projekts](https://github.com/logicog/RTLPlayground/blob/main/doc/supported_devices.md).
+Getestet mit RTLPlayground `v0.1.0-0e9c997`. Die Weboberfläche ist auf allen Geräten gleich; jeder Switch aus der [Geräteliste von RTLPlayground](https://github.com/logicog/RTLPlayground/blob/main/doc/supported_devices.md) sollte deshalb funktionieren.
 
-> Wenn dein Switch eine Weboberfläche auf Port 80 mit Benutzername/Passwort-Anmeldung hat, funktioniert er sehr wahrscheinlich. Eröffne ein Issue, damit er in die Tabelle aufgenommen wird.
+**Legende:** ✅ selbst getestet · ☑️ von anderen bestätigt oder sehr ähnlich
+
+**Kompatibles Gerät gefunden?** Eröffne ein [Issue](https://github.com/brunoz78/horaco_switch_ha/issues/new), damit es in die Tabelle aufgenommen wird.
 
 ---
 
