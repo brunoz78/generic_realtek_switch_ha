@@ -7,6 +7,7 @@ the RTLPlayground firmware.
 """
 from __future__ import annotations
 
+import inspect
 import logging
 import re
 from datetime import timedelta
@@ -64,16 +65,23 @@ async def _async_take_over(hass: HomeAssistant, entry: ConfigEntry) -> None:
         )
 
     dev_reg = dr.async_get(hass)
+    # Newer Home Assistant versions move a device in one step and deprecate
+    # adding and removing config entries on it
+    can_move = "new_config_entry_id" in inspect.signature(dev_reg.async_update_device).parameters
     for dev in dr.async_entries_for_config_entry(dev_reg, old_id):
-        dev_reg.async_update_device(dev.id, add_config_entry_id=entry.entry_id)
-        dev_reg.async_update_device(
-            dev.id,
-            remove_config_entry_id=old_id,
-            new_identifiers={
-                (DOMAIN, ident) if domain == OLD_DOMAIN else (domain, ident)
-                for domain, ident in dev.identifiers
-            },
-        )
+        identifiers = {
+            (DOMAIN, ident) if domain == OLD_DOMAIN else (domain, ident)
+            for domain, ident in dev.identifiers
+        }
+        if can_move:
+            dev_reg.async_update_device(
+                dev.id, new_config_entry_id=entry.entry_id, new_identifiers=identifiers
+            )
+        else:
+            dev_reg.async_update_device(dev.id, add_config_entry_id=entry.entry_id)
+            dev_reg.async_update_device(
+                dev.id, remove_config_entry_id=old_id, new_identifiers=identifiers
+            )
 
     data = {k: v for k, v in entry.data.items() if k != CONF_MIGRATED_FROM}
     hass.config_entries.async_update_entry(entry, data=data)
