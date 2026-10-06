@@ -24,7 +24,17 @@ Läuft auf dem Switch die quelloffene Firmware [RTLPlayground](https://github.co
 | HORACO HC-SWTGW218AS | 8 × GbE | 2 × 10G | ☑️ Laut Originalprojekt bestätigt |
 | HORACO HC-SWTGW215AS | 5 × GbE | — | ☑️ Laut Originalprojekt bestätigt |
 | OEM-Switches mit Realtek RTL8373 | unterschiedlich | — | ❔ Wahrscheinlich |
-| Switches mit [RTLPlayground](#rtlplayground)-Firmware | unterschiedlich | je nach Gerät | ✅ Mit ZX-SWTGW218AS getestet (ab 2.1.0) |
+| Weitere Switches mit [RTLPlayground](#rtlplayground)-Firmware | unterschiedlich | je nach Gerät | ❔ Sehr wahrscheinlich, siehe unten |
+
+**Mit der Ersatz-Firmware [RTLPlayground](#rtlplayground)** (ab Version 2.1.0 der Integration):
+
+| Modell | Ports | SFP+ | Status |
+|--------|-------|------|--------|
+| keepLink KP-9000-9XHML-X (HW V3.1) | 8 × 2.5GbE | 1 × 10G | ✅ Getestet |
+| HORACO ZX-SWTGW218AS (HW V1.1) | 8 × 2.5GbE | 1 × 10G | ✅ Getestet |
+| HORACO ZX-SWTGW215AS (HW V1.1) | 5 × 2.5GbE | 1 × 10G | ✅ Getestet |
+
+Getestet mit RTLPlayground `v0.1.0-0e9c997`. Welche Switches RTLPlayground unterstützt, steht in der [Geräteliste des Projekts](https://github.com/logicog/RTLPlayground/blob/main/doc/supported_devices.md).
 
 > Wenn dein Switch eine Weboberfläche auf Port 80 mit Benutzername/Passwort-Anmeldung hat, funktioniert er sehr wahrscheinlich. Eröffne ein Issue, damit er in die Tabelle aufgenommen wird.
 
@@ -163,7 +173,7 @@ Zwischen den einzelnen Anfragen liegt eine Pause von 0,4 s, damit der Mikrocontr
 
 ## RTLPlayground
 
-[RTLPlayground](https://github.com/logicog/RTLPlayground) ist eine quelloffene Ersatz-Firmware für Switches mit Realtek RTL8372/RTL8373. Die Integration erkennt sie beim Einrichten und bei jedem Start von Home Assistant an der Anmeldeseite. Wird ein bereits eingebundener Switch umgeflasht, stellt sie nach einem Neustart von Home Assistant selbst um — vorausgesetzt, IP-Adresse und Passwort sind gleich geblieben; sonst den Switch in Home Assistant löschen und neu hinzufügen.
+[RTLPlayground](https://github.com/logicog/RTLPlayground) ist eine quelloffene Ersatz-Firmware für Switches mit Realtek RTL8372/RTL8373. Die Integration erkennt sie beim Einrichten und bei jedem Start von Home Assistant an der Anmeldeseite. Wird ein bereits eingebundener Switch umgeflasht, stellt sie selbst um, sobald der Eintrag neu geladen wird (Einstellungen → Geräte & Dienste → HORACO Managed Switch → ⋮ → **Neu laden**) oder Home Assistant neu startet — vorausgesetzt, IP-Adresse und Passwort sind gleich geblieben; sonst den Switch in Home Assistant löschen und neu hinzufügen. Duplex- und Flusskontroll-Entitäten der Original-Firmware verschwinden dabei.
 
 **Einrichtung:** wie oben. RTLPlayground kennt keinen Benutzernamen, das Feld wird ignoriert; das Passwort ist ab Werk `1234`.
 
