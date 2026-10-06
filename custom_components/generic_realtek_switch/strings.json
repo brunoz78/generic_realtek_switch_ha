@@ -4,7 +4,7 @@
     "step": {
       "user": {
         "title": "Generic Realtek Switch",
-        "description": "Switches of the integration under its former name \"HORACO Managed Switch\" were found.",
+        "description": "Switches of an earlier version of this integration were found.",
         "menu_options": {
           "migrate": "Take over the existing switches (keeps entities, history and dashboards)",
           "manual": "Add a new switch"

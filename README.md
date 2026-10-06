@@ -72,14 +72,6 @@ Getestet mit RTLPlayground `v0.1.0-0e9c997`. Die Weboberfläche ist auf allen Ge
 2. Entpacken und den Ordner `generic_realtek_switch/` nach `<config>/custom_components/` kopieren
 3. Home Assistant neu starten und die Integration über die Oberfläche hinzufügen
 
-### Umstieg von „HORACO Managed Switch“
-
-Diese Integration hiess früher **HORACO Managed Switch** (`horaco_switch`). Bereits eingebundene Switches lassen sich übernehmen, ohne Passwörter neu einzugeben; Entitäts-IDs, Verlauf, Namen, Bereiche, Dashboards und Automationen bleiben erhalten:
-
-1. **Generic Realtek Switch** wie oben installieren, die alte Integration **HORACO Managed Switch** in HACS entfernen und Home Assistant neu starten
-2. **Einstellungen → Geräte & Dienste → Integration hinzufügen → Generic Realtek Switch → Vorhandene Switches übernehmen**
-3. Nach wenigen Sekunden erscheinen alle Switches unter der neuen Integration; die alten Einträge werden dabei entfernt
-
 ---
 
 ## Einrichtung
