@@ -74,8 +74,8 @@ Getestet mit RTLPlayground `v0.1.0-0e9c997`. Welche Switches RTLPlayground unter
 |------|----------|---------|
 | IP-Adresse des Switches | — | z. B. `192.168.1.100` |
 | HTTP-Port | `80` | Nur ändern, wenn die Weboberfläche auf einem anderen Port läuft |
-| Benutzername | `admin` | Werkseinstellung der meisten Modelle |
-| Passwort | `admin` | Werkseinstellung der meisten Modelle |
+| Benutzername | `admin` | Werkseinstellung der meisten Modelle; bei [RTLPlayground](#rtlplayground) einfach `admin` stehen lassen |
+| Passwort | `admin` | Werkseinstellung der meisten Modelle; bei RTLPlayground ab Werk `1234` |
 
 Für jeden Switch die Integration einmal hinzufügen. Nach der Einrichtung kannst du über **Konfigurieren** auf der Integrationskarte das Abfrageintervall anpassen (10–300 s).
 
@@ -177,7 +177,7 @@ Zwischen den einzelnen Anfragen liegt eine Pause von 0,4 s, damit der Mikrocontr
 
 [RTLPlayground](https://github.com/logicog/RTLPlayground) ist eine quelloffene Ersatz-Firmware für Switches mit Realtek RTL8372/RTL8373. Die Integration erkennt sie beim Einrichten und bei jedem Start von Home Assistant an der Anmeldeseite. Wird ein bereits eingebundener Switch umgeflasht, stellt sie selbst um, sobald der Eintrag neu geladen wird (Einstellungen → Geräte & Dienste → HORACO Managed Switch → ⋮ → **Neu laden**) oder Home Assistant neu startet — vorausgesetzt, IP-Adresse und Passwort sind gleich geblieben; sonst den Switch in Home Assistant löschen und neu hinzufügen. Duplex- und Flusskontroll-Entitäten der Original-Firmware verschwinden dabei.
 
-**Einrichtung:** wie oben. RTLPlayground kennt keinen Benutzernamen, das Feld wird ignoriert; das Passwort ist ab Werk `1234`.
+**Einrichtung:** wie oben. RTLPlayground kennt keinen Benutzernamen: Das Feld kann auf `admin` stehen bleiben, es wird ignoriert. Das Passwort ist ab Werk `1234`.
 
 **Was anders ist:**
 
