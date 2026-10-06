@@ -1,4 +1,5 @@
 {
+  "title": "Generic Realtek Switch",
   "config": {
     "step": {
       "user": {
