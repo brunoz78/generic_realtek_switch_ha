@@ -2,8 +2,16 @@
   "config": {
     "step": {
       "user": {
+        "title": "Generic Realtek Switch",
+        "description": "Switches of the integration under its former name \"HORACO Managed Switch\" were found.",
+        "menu_options": {
+          "migrate": "Take over the existing switches (keeps entities, history and dashboards)",
+          "manual": "Add a new switch"
+        }
+      },
+      "manual": {
         "title": "Connect to your Managed Switch",
-        "description": "Works with HORACO HC-SWTGW218AS, HC-SWTGW215AS, keepLink KP9000 and compatible OEM switches, with the original firmware or RTLPlayground (detected automatically). Default credentials: admin / admin; RTLPlayground only uses the password (default 1234).",
+        "description": "Works with managed switches with a Realtek chip, either with the common Realtek web interface of the original firmware or with RTLPlayground (detected automatically). Default credentials: admin / admin; RTLPlayground only uses the password (default 1234).",
         "data": {
           "host": "Switch IP Address",
           "port": "HTTP Port",
@@ -17,13 +25,15 @@
       "unknown": "Unexpected error — check the Home Assistant logs."
     },
     "abort": {
-      "already_configured": "This switch is already configured."
+      "already_configured": "This switch is already configured.",
+      "migration_started": "Taking over {count} switches. They appear in a few seconds, with the same entities as before; the old entries are removed.",
+      "migration_source_missing": "The switch to take over no longer exists."
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "HORACO Switch Options",
+        "title": "Switch options",
         "data": {
           "scan_interval": "Polling interval (seconds, 10–300)"
         }

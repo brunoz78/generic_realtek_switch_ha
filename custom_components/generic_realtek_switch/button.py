@@ -13,7 +13,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from . import HoracoCoordinator
+from . import SwitchCoordinator
 from .const import DOMAIN, object_id
 from .sensor import switch_device_info   # reuse the helper
 
@@ -25,11 +25,11 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    coordinator: HoracoCoordinator = hass.data[DOMAIN][entry.entry_id]
+    coordinator: SwitchCoordinator = hass.data[DOMAIN][entry.entry_id]
     async_add_entities([RebootButton(coordinator)])
 
 
-class RebootButton(CoordinatorEntity[HoracoCoordinator], ButtonEntity):
+class RebootButton(CoordinatorEntity[SwitchCoordinator], ButtonEntity):
     """Button that reboots the managed switch."""
 
     _attr_device_class = ButtonDeviceClass.RESTART
@@ -37,7 +37,7 @@ class RebootButton(CoordinatorEntity[HoracoCoordinator], ButtonEntity):
     _attr_translation_key = "reboot"
     _attr_icon = "mdi:restart"
 
-    def __init__(self, coordinator: HoracoCoordinator) -> None:
+    def __init__(self, coordinator: SwitchCoordinator) -> None:
         super().__init__(coordinator)
         self._attr_unique_id = f"{DOMAIN}_{coordinator.scraper.ip}_reboot"
         self.entity_id = f"button.{object_id(coordinator.scraper.ip, 'reboot')}"

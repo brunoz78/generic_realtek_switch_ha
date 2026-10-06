@@ -1,6 +1,8 @@
-"""Constants for the HORACO Managed Switch integration."""
+"""Constants for the Generic Realtek Switch integration."""
 
-DOMAIN = "horaco_switch"
+DOMAIN = "generic_realtek_switch"
+# Domain of this integration before it was renamed; its entries are taken over
+OLD_DOMAIN = "horaco_switch"
 
 DEFAULT_PORT = 80
 DEFAULT_USERNAME = "admin"
@@ -18,6 +20,8 @@ CGI_REBOOT    = "/reboot.cgi"
 
 # RTLPlayground firmware (JSON interface)
 CONF_FIRMWARE = "firmware"
+# Entry ID of the switch under the former integration name, set while it is taken over
+CONF_MIGRATED_FROM = "migrated_from"
 FIRMWARE_CGI = "cgi"
 FIRMWARE_RTLPLAYGROUND = "rtlplayground"
 RTL_LOGIN_PAGE = "/login.html"

@@ -1,4 +1,4 @@
-"""HORACO / OEM Managed Switch — Home Assistant Integration.
+"""Generic Realtek Switch — Home Assistant integration.
 
 Talks directly to the switch, no intermediate service needed: to the CGI
 pages of the original firmware (scraping logic based on
@@ -11,7 +11,7 @@ import logging
 import re
 from datetime import timedelta
 
-from homeassistant.config_entries import ConfigEntry
+from homeassistant.config_entries import ConfigEntry, ConfigEntryState
 from homeassistant.const import CONF_HOST, CONF_PASSWORD, CONF_PORT, CONF_USERNAME, Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr
@@ -21,14 +21,16 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 
 from .const import (
     CONF_FIRMWARE,
+    CONF_MIGRATED_FROM,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
     FIRMWARE_CGI,
     FIRMWARE_RTLPLAYGROUND,
+    OLD_DOMAIN,
     object_id,
 )
 from .rtlplayground import RtlPlaygroundClient, detect_rtlplayground
-from .scraper import HoracoScraper, SwitchData
+from .scraper import CgiScraper, SwitchData
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -38,8 +40,53 @@ PLATFORMS: list[Platform] = [
 ]
 
 
+async def _async_take_over(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Move devices and entities of the switch from the former integration name.
+
+    Entity IDs, history, names, areas and the device stay as they are; only
+    the owning integration, config entry and unique IDs change. The old entry
+    is removed afterwards.
+    """
+    old_id = entry.data[CONF_MIGRATED_FROM]
+    old = hass.config_entries.async_get_entry(old_id)
+    if old is not None and old.state is ConfigEntryState.LOADED:
+        await hass.config_entries.async_unload(old_id)
+
+    ent_reg = er.async_get(hass)
+    for ent in er.async_entries_for_config_entry(ent_reg, old_id):
+        if hass.states.get(ent.entity_id) is not None:
+            hass.states.async_remove(ent.entity_id)
+        new_unique_id = ent.unique_id
+        if new_unique_id.startswith(f"{OLD_DOMAIN}_"):
+            new_unique_id = DOMAIN + new_unique_id[len(OLD_DOMAIN):]
+        ent_reg.async_update_entity_platform(
+            ent.entity_id, DOMAIN, new_config_entry_id=entry.entry_id, new_unique_id=new_unique_id
+        )
+
+    dev_reg = dr.async_get(hass)
+    for dev in dr.async_entries_for_config_entry(dev_reg, old_id):
+        dev_reg.async_update_device(dev.id, add_config_entry_id=entry.entry_id)
+        dev_reg.async_update_device(
+            dev.id,
+            remove_config_entry_id=old_id,
+            new_identifiers={
+                (DOMAIN, ident) if domain == OLD_DOMAIN else (domain, ident)
+                for domain, ident in dev.identifiers
+            },
+        )
+
+    data = {k: v for k, v in entry.data.items() if k != CONF_MIGRATED_FROM}
+    hass.config_entries.async_update_entry(entry, data=data)
+    if old is not None:
+        await hass.config_entries.async_remove(old_id)
+    _LOGGER.info("[%s] Taken over from %s", entry.data[CONF_HOST], OLD_DOMAIN)
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Set up HORACO Switch from a config entry."""
+    """Set up a switch from a config entry."""
+    if CONF_MIGRATED_FROM in entry.data:
+        await _async_take_over(hass, entry)
+
     session = async_get_clientsession(hass)
     ip = entry.data[CONF_HOST]
     http_port = entry.data.get(CONF_PORT, 80)
@@ -57,13 +104,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             )
             firmware = detected
 
-    scraper: HoracoScraper | RtlPlaygroundClient
+    scraper: CgiScraper | RtlPlaygroundClient
     if firmware == FIRMWARE_RTLPLAYGROUND:
         scraper = RtlPlaygroundClient(
             session=session, ip=ip, password=entry.data[CONF_PASSWORD], http_port=http_port,
         )
     else:
-        scraper = HoracoScraper(
+        scraper = CgiScraper(
             session=session,
             ip=ip,
             username=entry.data[CONF_USERNAME],
@@ -71,7 +118,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             http_port=http_port,
         )
 
-    coordinator = HoracoCoordinator(hass, scraper, entry)
+    coordinator = SwitchCoordinator(hass, scraper, entry)
     await coordinator.async_config_entry_first_refresh()
 
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = coordinator
@@ -174,13 +221,13 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     return ok
 
 
-class HoracoCoordinator(DataUpdateCoordinator[SwitchData]):
+class SwitchCoordinator(DataUpdateCoordinator[SwitchData]):
     """Central coordinator — polls the switch at a fixed interval."""
 
     def __init__(
         self,
         hass: HomeAssistant,
-        scraper: HoracoScraper | RtlPlaygroundClient,
+        scraper: CgiScraper | RtlPlaygroundClient,
         entry: ConfigEntry,
     ) -> None:
         self.scraper = scraper

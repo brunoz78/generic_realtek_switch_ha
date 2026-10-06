@@ -2,8 +2,16 @@
   "config": {
     "step": {
       "user": {
+        "title": "Generic Realtek Switch",
+        "description": "Es wurden Switches der Integration unter ihrem früheren Namen „HORACO Managed Switch“ gefunden.",
+        "menu_options": {
+          "migrate": "Vorhandene Switches übernehmen (Entitäten, Verlauf und Dashboards bleiben erhalten)",
+          "manual": "Neuen Switch hinzufügen"
+        }
+      },
+      "manual": {
         "title": "Mit dem Managed Switch verbinden",
-        "description": "Funktioniert mit HORACO HC-SWTGW218AS, HC-SWTGW215AS, keepLink KP9000 und kompatiblen OEM-Switches, mit der Original-Firmware oder mit RTLPlayground (wird automatisch erkannt). Standard-Zugangsdaten: admin / admin; bei RTLPlayground zählt nur das Passwort (Standard 1234).",
+        "description": "Funktioniert mit Managed Switches mit Realtek-Chip, entweder mit der verbreiteten Realtek-Weboberfläche der Original-Firmware oder mit RTLPlayground (wird automatisch erkannt). Standard-Zugangsdaten: admin / admin; bei RTLPlayground zählt nur das Passwort (Standard 1234).",
         "data": {
           "host": "IP-Adresse des Switches",
           "port": "HTTP-Port",
@@ -17,13 +25,15 @@
       "unknown": "Unerwarteter Fehler — bitte die Home-Assistant-Protokolle prüfen."
     },
     "abort": {
-      "already_configured": "Dieser Switch ist bereits eingerichtet."
+      "already_configured": "Dieser Switch ist bereits eingerichtet.",
+      "migration_started": "{count} Switches werden übernommen. Sie erscheinen in wenigen Sekunden mit denselben Entitäten wie bisher; die alten Einträge werden entfernt.",
+      "migration_source_missing": "Der zu übernehmende Switch existiert nicht mehr."
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "Optionen für den HORACO Switch",
+        "title": "Optionen für den Switch",
         "data": {
           "scan_interval": "Abfrageintervall (Sekunden, 10–300)"
         }

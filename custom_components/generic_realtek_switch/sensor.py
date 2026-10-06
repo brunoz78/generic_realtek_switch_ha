@@ -1,4 +1,4 @@
-"""Sensor platform for HORACO Managed Switch.
+"""Sensor platform for the Generic Realtek Switch integration.
 
 Architecture:
   • One Device per switch (model, firmware, uptime, MAC, ports summary)
@@ -28,7 +28,7 @@ from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from . import HoracoCoordinator
+from . import SwitchCoordinator
 from .const import DOMAIN, PORT_ID_SUFFIX, PORT_STATUS_DISABLED, PORT_STATUS_UP, object_id
 from .scraper import PortData, SwitchData
 
@@ -39,13 +39,13 @@ _LOGGER = logging.getLogger(__name__)
 # Device helpers
 # ────────────────────────────────────────────────────────────────────────────
 
-def switch_device_info(coordinator: HoracoCoordinator) -> DeviceInfo:
+def switch_device_info(coordinator: SwitchCoordinator) -> DeviceInfo:
     """DeviceInfo for the physical switch (parent device)."""
     d = coordinator.data
     return DeviceInfo(
         identifiers={(DOMAIN, coordinator.scraper.ip)},
         name=f"Switch {coordinator.scraper.ip}",
-        manufacturer="HORACO",
+        manufacturer="Realtek (generic)",
         model=d.model if d else "Unknown",
         sw_version=d.firmware if d else None,
         hw_version=None,
@@ -234,7 +234,7 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    coordinator: HoracoCoordinator = hass.data[DOMAIN][entry.entry_id]
+    coordinator: SwitchCoordinator = hass.data[DOMAIN][entry.entry_id]
     entities: list[SensorEntity] = []
 
     data = coordinator.data
@@ -278,12 +278,12 @@ async def async_setup_entry(
 # Entity classes
 # ────────────────────────────────────────────────────────────────────────────
 
-class SwitchLevelSensor(CoordinatorEntity[HoracoCoordinator], SensorEntity):
+class SwitchLevelSensor(CoordinatorEntity[SwitchCoordinator], SensorEntity):
     """Sensor attached to the parent switch device."""
 
     entity_description: SwitchSensorDesc
 
-    def __init__(self, coordinator: HoracoCoordinator, desc: SwitchSensorDesc) -> None:
+    def __init__(self, coordinator: SwitchCoordinator, desc: SwitchSensorDesc) -> None:
         super().__init__(coordinator)
         self.entity_description = desc
         self._attr_unique_id = f"{DOMAIN}_{coordinator.scraper.ip}_{desc.key}"
@@ -296,14 +296,14 @@ class SwitchLevelSensor(CoordinatorEntity[HoracoCoordinator], SensorEntity):
         return self.entity_description.value_fn(self.coordinator.data) if self.coordinator.data else None
 
 
-class PortLevelSensor(CoordinatorEntity[HoracoCoordinator], SensorEntity):
+class PortLevelSensor(CoordinatorEntity[SwitchCoordinator], SensorEntity):
     """Per-port sensor, attached to the switch device."""
 
     entity_description: PortSensorDesc
 
     def __init__(
         self,
-        coordinator: HoracoCoordinator,
+        coordinator: SwitchCoordinator,
         port_num: str,
         desc: PortSensorDesc,
     ) -> None:

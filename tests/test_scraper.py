@@ -3,7 +3,7 @@ import pathlib
 
 import pytest
 
-from horaco_switch.scraper import HoracoScraper
+from generic_realtek_switch.scraper import CgiScraper
 
 FIXTURES = pathlib.Path(__file__).parent / "fixtures"
 
@@ -13,7 +13,7 @@ def load(device: str, page: str) -> str:
 
 
 def parse(device: str, *, stats: bool = True):
-    scraper = HoracoScraper(None, "192.0.2.10", "admin", "admin")
+    scraper = CgiScraper(None, "192.0.2.10", "admin", "admin")
     return scraper.parse(
         load(device, "info"),
         load(device, "port"),
@@ -90,7 +90,7 @@ def test_missing_stats_page_leaves_counters_unknown(device):
 
 
 def test_no_pages_no_ports():
-    scraper = HoracoScraper(None, "192.0.2.10", "admin", "admin")
+    scraper = CgiScraper(None, "192.0.2.10", "admin", "admin")
     assert scraper.parse(None, None, None).ports == []
 
 
@@ -104,7 +104,7 @@ def test_no_pages_no_ports():
     ("Link Down", ("", "")),
 ])
 def test_parse_speed_duplex(raw, expected):
-    assert HoracoScraper._parse_speed_duplex(raw) == expected
+    assert CgiScraper._parse_speed_duplex(raw) == expected
 
 
 @pytest.mark.parametrize("raw, expected", [
@@ -115,4 +115,4 @@ def test_parse_speed_duplex(raw, expected):
     ("garbage", 0),
 ])
 def test_parse_counter(raw, expected):
-    assert HoracoScraper._parse_counter(raw) == expected
+    assert CgiScraper._parse_counter(raw) == expected

@@ -1,7 +1,9 @@
-# HORACO Managed Switch
+# Generic Realtek Switch
 
-Native Home-Assistant-Integration für HORACO HC-SWTGW218AS, HC-SWTGW215AS, ZX-SWTGW215AS,
-keepLink KP9000 / KP-9000-9XHML-X und kompatible OEM-Managed-Switches.
+Native Home-Assistant-Integration für Managed Switches mit Realtek-Chip: mit der verbreiteten
+Realtek-Weboberfläche (z. B. HORACO, keepLink, Lianguo, Mokerlink) oder mit der Ersatz-Firmware RTLPlayground.
+
+Früher „HORACO Managed Switch“: Bestehende Switches lassen sich beim Hinzufügen übernehmen, Entitäten und Dashboards bleiben erhalten.
 
 **Keine zusätzliche App und kein Zwischendienst nötig** — die Integration spricht direkt mit der CGI-Schnittstelle des Switches oder, bei der quelloffenen Firmware RTLPlayground, mit deren JSON-Schnittstelle (wird automatisch erkannt).
 

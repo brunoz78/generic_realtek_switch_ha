@@ -1,12 +1,12 @@
-# HORACO Managed Switch — Home-Assistant-Integration
+# Generic Realtek Switch — Home-Assistant-Integration
 
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/hacs/integration)
-[![GitHub Release](https://img.shields.io/github/v/release/brunoz78/horaco_switch_ha)](https://github.com/brunoz78/horaco_switch_ha/releases)
-[![Validate](https://github.com/brunoz78/horaco_switch_ha/actions/workflows/validate.yml/badge.svg)](https://github.com/brunoz78/horaco_switch_ha/actions/workflows/validate.yml)
+[![GitHub Release](https://img.shields.io/github/v/release/brunoz78/generic_realtek_switch_ha)](https://github.com/brunoz78/generic_realtek_switch_ha/releases)
+[![Validate](https://github.com/brunoz78/generic_realtek_switch_ha/actions/workflows/validate.yml/badge.svg)](https://github.com/brunoz78/generic_realtek_switch_ha/actions/workflows/validate.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![HA Version](https://img.shields.io/badge/Home%20Assistant-2024.1%2B-blue)](https://www.home-assistant.io/)
 
-Überwache deine günstigen Managed Switches von **HORACO**, **keepLink** und baugleichen OEM-Herstellern (Realtek-Chipsatz) direkt in Home Assistant — **ohne zusätzliche App, ohne Docker, ohne Zwischendienst**.
+Überwache Managed Switches mit Realtek-Chip direkt in Home Assistant — **ohne zusätzliche App, ohne Docker, ohne Zwischendienst**. Gemeint sind Switches mit der verbreiteten Realtek-Weboberfläche, wie sie viele günstige Marken verwenden (z. B. HORACO, keepLink, Lianguo, Mokerlink), sowie alle Switches mit der Ersatz-Firmware [RTLPlayground](#rtlplayground). Ob ein Switch passt, entscheidet seine Weboberfläche, nicht die Marke — siehe [Unterstützte Geräte](#unterstützte-geräte).
 
 Die Integration meldet sich an der Weboberfläche des Switches an und liest Geräte-Info, Port-Status und Zähler direkt von dessen Seiten aus. Sie erkennt dabei zwei Seitenaufbauten der Firmware: einen, bei dem die Port-Daten auf der Info-Seite stehen, und einen, bei dem sie auf der Port-Seite stehen (z. B. keepLink KP-9000-9XHML-X und HORACO ZX-SWTGW215AS). Pro Switch entsteht ein Gerät; mehrere Switches lassen sich parallel einbinden. Die Namen der Entitäten erscheinen in der Sprache von Home Assistant (Deutsch oder Englisch).
 
@@ -44,7 +44,7 @@ Getestet mit RTLPlayground `v0.1.0-0e9c997`. Die Weboberfläche ist auf allen Ge
 
 **Legende:** ✅ selbst getestet · ☑️ von anderen bestätigt oder sehr ähnlich
 
-**Kompatibles Gerät gefunden?** Eröffne ein [Issue](https://github.com/brunoz78/horaco_switch_ha/issues/new), damit es in die Tabelle aufgenommen wird.
+**Kompatibles Gerät gefunden?** Eröffne ein [Issue](https://github.com/brunoz78/generic_realtek_switch_ha/issues/new), damit es in die Tabelle aufgenommen wird.
 
 ---
 
@@ -62,15 +62,23 @@ Getestet mit RTLPlayground `v0.1.0-0e9c997`. Die Weboberfläche ist auf allen Ge
 ### Über HACS (empfohlen)
 
 1. HACS → Integrationen → ⋮ → **Benutzerdefinierte Repositories**
-2. URL: `https://github.com/brunoz78/horaco_switch_ha` · Typ: **Integration**
-3. **HORACO Managed Switch** installieren und Home Assistant neu starten
-4. **Einstellungen → Geräte & Dienste → Integration hinzufügen → HORACO Managed Switch**
+2. URL: `https://github.com/brunoz78/generic_realtek_switch_ha` · Typ: **Integration**
+3. **Generic Realtek Switch** installieren und Home Assistant neu starten
+4. **Einstellungen → Geräte & Dienste → Integration hinzufügen → Generic Realtek Switch**
 
 ### Manuell
 
-1. Die Datei `horaco_switch.zip` des neuesten [Releases](https://github.com/brunoz78/horaco_switch_ha/releases/latest) herunterladen
-2. Entpacken und den Ordner `horaco_switch/` nach `<config>/custom_components/` kopieren
+1. Die Datei `generic_realtek_switch.zip` des neuesten [Releases](https://github.com/brunoz78/generic_realtek_switch_ha/releases/latest) herunterladen
+2. Entpacken und den Ordner `generic_realtek_switch/` nach `<config>/custom_components/` kopieren
 3. Home Assistant neu starten und die Integration über die Oberfläche hinzufügen
+
+### Umstieg von „HORACO Managed Switch“
+
+Diese Integration hiess früher **HORACO Managed Switch** (`horaco_switch`). Bereits eingebundene Switches lassen sich übernehmen, ohne Passwörter neu einzugeben; Entitäts-IDs, Verlauf, Namen, Bereiche, Dashboards und Automationen bleiben erhalten:
+
+1. **Generic Realtek Switch** wie oben installieren, die alte Integration **HORACO Managed Switch** in HACS entfernen und Home Assistant neu starten
+2. **Einstellungen → Geräte & Dienste → Integration hinzufügen → Generic Realtek Switch → Vorhandene Switches übernehmen**
+3. Nach wenigen Sekunden erscheinen alle Switches unter der neuen Integration; die alten Einträge werden dabei entfernt
 
 ---
 
@@ -181,7 +189,7 @@ Zwischen den einzelnen Anfragen liegt eine Pause von 0,4 s, damit der Mikrocontr
 
 ## RTLPlayground
 
-[RTLPlayground](https://github.com/logicog/RTLPlayground) ist eine quelloffene Ersatz-Firmware für Switches mit Realtek RTL8372/RTL8373. Die Integration erkennt sie beim Einrichten und bei jedem Start von Home Assistant an der Anmeldeseite. Wird ein bereits eingebundener Switch umgeflasht, stellt sie selbst um, sobald der Eintrag neu geladen wird (Einstellungen → Geräte & Dienste → HORACO Managed Switch → ⋮ → **Neu laden**) oder Home Assistant neu startet — vorausgesetzt, IP-Adresse und Passwort sind gleich geblieben; sonst den Switch in Home Assistant löschen und neu hinzufügen. Duplex- und Flusskontroll-Entitäten der Original-Firmware verschwinden dabei.
+[RTLPlayground](https://github.com/logicog/RTLPlayground) ist eine quelloffene Ersatz-Firmware für Switches mit Realtek RTL8372/RTL8373. Die Integration erkennt sie beim Einrichten und bei jedem Start von Home Assistant an der Anmeldeseite. Wird ein bereits eingebundener Switch umgeflasht, stellt sie selbst um, sobald der Eintrag neu geladen wird (Einstellungen → Geräte & Dienste → Generic Realtek Switch → ⋮ → **Neu laden**) oder Home Assistant neu startet — vorausgesetzt, IP-Adresse und Passwort sind gleich geblieben; sonst den Switch in Home Assistant löschen und neu hinzufügen. Duplex- und Flusskontroll-Entitäten der Original-Firmware verschwinden dabei.
 
 **Einrichtung:** wie oben. RTLPlayground kennt keinen Benutzernamen: Das Feld kann auf `admin` stehen bleiben, es wird ignoriert. Das Passwort ist ab Werk `1234`.
 
@@ -216,7 +224,7 @@ python -m pytest tests
 
 Wer ein neues Modell ergänzt, legt am besten dessen `info.cgi`, `port.cgi` und `port.cgi?page=stats` (MAC und IP anonymisiert) als neuen Ordner unter `tests/fixtures/` ab.
 
-**Kompatibles Gerät gefunden?** Eröffne ein [Issue](https://github.com/brunoz78/horaco_switch_ha/issues/new) mit Modell, Firmware-Version und Port-Ausstattung, dann wird es in die Tabelle aufgenommen.
+**Kompatibles Gerät gefunden?** Eröffne ein [Issue](https://github.com/brunoz78/generic_realtek_switch_ha/issues/new) mit Modell, Firmware-Version und Port-Ausstattung, dann wird es in die Tabelle aufgenommen.
 
 ---
 
@@ -226,6 +234,6 @@ MIT — siehe [LICENSE](LICENSE)
 
 ## Danksagung
 
-Fork von [gtrancillo/horaco_switch_ha](https://github.com/gtrancillo/horaco_switch_ha).
+Ursprünglich ein Fork von [gtrancillo/horaco_switch_ha](https://github.com/gtrancillo/horaco_switch_ha).
 
 Wissen über die CGI-Endpunkte und den Abfrage-Ansatz stammt aus [byte4geek/switch-dashboard](https://github.com/byte4geek/switch-dashboard).

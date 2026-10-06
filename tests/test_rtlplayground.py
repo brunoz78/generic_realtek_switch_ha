@@ -11,8 +11,8 @@ import aiohttp
 from aiohttp import web
 from aiohttp.test_utils import TestServer
 
-from horaco_switch import rtlplayground
-from horaco_switch.rtlplayground import RtlPlaygroundClient, detect_rtlplayground
+from generic_realtek_switch import rtlplayground
+from generic_realtek_switch.rtlplayground import RtlPlaygroundClient, detect_rtlplayground
 
 FIXTURES = pathlib.Path(__file__).parent / "fixtures" / "rtlplayground_swtgw218as"
 INFO = json.loads((FIXTURES / "information.json").read_text(encoding="utf-8"))

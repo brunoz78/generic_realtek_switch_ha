@@ -1,5 +1,5 @@
 """
-Direct CGI scraper for HORACO HC-SWTGW218AS and compatible OEM switches.
+Direct CGI scraper for the original Realtek-based web interface (HORACO, keepLink and other OEM switches).
 
 Ported from https://github.com/byte4geek/switch-dashboard (scraper.py)
 into async aiohttp for native Home Assistant use — no intermediate service.
@@ -84,7 +84,7 @@ class SwitchData:
     hostname: str = ""
 
 
-class HoracoScraper:
+class CgiScraper:
     """Async scraper that speaks directly to the switch CGI interface."""
 
     def __init__(
@@ -437,7 +437,7 @@ class HoracoScraper:
 
         return SwitchData(
             ip=self.ip,
-            model=device_info.get("model", "HORACO/OEM"),
+            model=device_info.get("model", "Unknown"),
             mac=device_info.get("mac", ""),
             uptime=device_info.get("uptime", ""),
             firmware=device_info.get("firmware", ""),

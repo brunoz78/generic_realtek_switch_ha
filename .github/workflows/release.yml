@@ -17,11 +17,11 @@ jobs:
       - name: Zip integration
         run: |
           cd custom_components
-          zip -r ../horaco_switch.zip horaco_switch/
+          zip -r ../generic_realtek_switch.zip generic_realtek_switch/
           cd ..
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: horaco_switch.zip
+          files: generic_realtek_switch.zip
           generate_release_notes: true
