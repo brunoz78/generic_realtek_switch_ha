@@ -19,6 +19,7 @@ Läuft auf dem Switch die quelloffene Firmware [RTLPlayground](https://github.co
 | Modell | Ports | SFP+ | Status |
 |--------|-------|------|--------|
 | keepLink KP-9000-9XHML-X (HW V3.1, FW V100.9.9.1.7) | 8 × 2.5GbE | 1 × 10G | ✅ Mit dieser Version getestet |
+| HORACO ZX-SWTGW218AS (HW V1.1, FW V1.9.1) | 8 × 2.5GbE | 1 × 10G | ✅ Mit dieser Version getestet |
 | HORACO ZX-SWTGW215AS (HW V1.1, FW V1.9) | 5 × 2.5GbE | 1 × 10G | ✅ Mit dieser Version getestet |
 | keepLink KP9000-9XH-X | 8 × GbE | 1 × 10G | ☑️ Laut Originalprojekt bestätigt |
 | HORACO HC-SWTGW218AS | 8 × GbE | 2 × 10G | ☑️ Laut Originalprojekt bestätigt |
