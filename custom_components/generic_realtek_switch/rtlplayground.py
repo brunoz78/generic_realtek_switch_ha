@@ -8,10 +8,13 @@ Auth flow:
   3. GET /status.json       → per port: enabled, link speed, packet/error counters
   4. GET /reset             → reboot (the switch closes the connection)
 
-The firmware keeps a single session: logging in from Home Assistant logs out
-an open browser tab and vice versa. When the session is taken over while it
-was still fresh, polling pauses for a while instead of logging straight back
-in, so the web interface stays usable.
+Older firmware keeps a single session: logging in from Home Assistant logs
+out an open browser tab and vice versa. When the session is taken over while
+it was still fresh, polling pauses for a while instead of logging straight
+back in, so the web interface stays usable. Firmware with several sessions is
+recognised at login (a second login leaves the first session valid); there a
+lost session can only mean a restart of the switch, so the client logs in
+again right away.
 """
 from __future__ import annotations
 
@@ -96,6 +99,7 @@ class RtlPlaygroundClient:
         self._last_ok = 0.0          # monotonic time of the last authenticated reply
         self._session_timeout = _DEFAULT_SESSION_TIMEOUT
         self._paused_until = 0.0
+        self._multi_session: bool | None = None  # known after the first login
 
     # ------------------------------------------------------------------
     # HTTP
@@ -122,6 +126,27 @@ class RtlPlaygroundClient:
                     await asyncio.sleep(_RETRY_DELAY)
                     continue
                 raise RuntimeError(f"Login failed for {self.ip}: {exc}") from exc
+
+    async def _login_and_probe(self) -> None:
+        """Log in twice and check whether the first session survived the second.
+
+        On single-session firmware the second login only replaces our own
+        first one, so this costs nothing over a single login.
+        """
+        await self._login()
+        first = self._session_id
+        await self._login()
+        second = self._session_id
+        self._session_id = first
+        try:
+            await self._get_json(RTL_INFO)
+            multi = True
+        except SessionLost:
+            multi = False
+        self._session_id = second
+        if multi != self._multi_session:
+            _LOGGER.debug("[%s] Firmware keeps %s", self.ip, "several sessions" if multi else "one session")
+        self._multi_session = multi
 
     async def _get_json(self, path: str) -> Any:
         """GET a JSON endpoint; raises SessionLost on 401."""
@@ -160,13 +185,16 @@ class RtlPlaygroundClient:
             return unavailable
         try:
             if not self._session_id:
-                await self._login()
+                await self._login_and_probe()
             try:
                 info = await self._get_json(RTL_INFO)
                 status = await self._get_json(RTL_STATUS)
             except SessionLost:
                 idle = time.monotonic() - self._last_ok
-                if idle < self._session_timeout:
+                if self._multi_session:
+                    # Browsers get sessions of their own: the switch restarted
+                    _LOGGER.info("[%s] Session lost, the switch probably restarted; logging in again", self.ip)
+                elif idle < self._session_timeout:
                     # Our session was still valid: someone logged in through the web UI
                     _LOGGER.info(
                         "[%s] Session taken over by the web interface, pausing for %d s",
@@ -175,7 +203,7 @@ class RtlPlaygroundClient:
                     self._session_id = None
                     self._paused_until = time.monotonic() + _TAKEOVER_PAUSE
                     return unavailable
-                await self._login()
+                await self._login_and_probe()
                 info = await self._get_json(RTL_INFO)
                 status = await self._get_json(RTL_STATUS)
         except Exception as exc:

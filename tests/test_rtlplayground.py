@@ -78,13 +78,29 @@ def test_negative_and_missing_temperature():
 # ── Against a fake switch ──────────────────────────────────────────────────
 
 class FakeSwitch:
-    """One session at a time, like the real firmware."""
+    """Like the real firmware: one session at a time, or up to `slots` with
+    newer firmware, the least recently created one replaced first."""
 
-    def __init__(self, password="1234"):
+    def __init__(self, password="1234", slots=1):
         self.password = password
-        self.session = None
+        self.slots = slots
+        self.sessions = []
         self.logins = 0
         self.reset = False
+
+    @property
+    def session(self):
+        return self.sessions[-1] if self.sessions else None
+
+    @session.setter
+    def session(self, value):
+        self.sessions = [value]
+
+    def _add(self, sid):
+        self.sessions = (self.sessions + [sid])[-self.slots:]
+
+    def restart(self):
+        self.sessions = []
 
     def app(self):
         app = web.Application()
@@ -103,14 +119,14 @@ class FakeSwitch:
         if form.get("pwd") != self.password:
             raise web.HTTPFound("login.html")
         self.logins += 1
-        self.session = f"s{self.logins:015d}"
+        self._add(f"s{self.logins:015d}")
         resp = web.HTTPFound("index.html")
         resp.headers["Set-Cookie"] = f"session={self.session}; SameSite=Strict"
         raise resp
 
     def json(self, payload):
         async def handler(request):
-            if request.cookies.get("session") != self.session:
+            if request.cookies.get("session") not in self.sessions:
                 return web.Response(status=401)
             return web.json_response(payload)
         return handler
@@ -122,7 +138,7 @@ class FakeSwitch:
 
     def browser_login(self):
         self.logins += 1
-        self.session = "browser"
+        self._add("browser")
 
 
 def run(fake, coro_fn):
@@ -152,7 +168,7 @@ def test_detect_and_scrape(monkeypatch):
         return await client.scrape()
 
     d = run(fake, go)
-    assert d.available and len(d.ports) == 9 and fake.logins == 1
+    assert d.available and len(d.ports) == 9 and fake.logins == 2
 
 
 def test_wrong_password(monkeypatch):
@@ -171,7 +187,7 @@ def test_session_kept_between_polls(monkeypatch):
         return await client.scrape()
 
     assert run(fake, go).available
-    assert fake.logins == 1
+    assert fake.logins == 2
 
 
 def test_takeover_by_browser_pauses_polling(monkeypatch):
@@ -201,7 +217,7 @@ def test_expired_session_relogs_in(monkeypatch):
         return await client.scrape()
 
     assert run(fake, go).available
-    assert fake.logins == 2
+    assert fake.logins == 4
 
 
 def test_reboot(monkeypatch):
@@ -214,3 +230,29 @@ def test_reboot(monkeypatch):
 
     assert run(fake, go) is True
     assert fake.reset
+
+
+def test_several_sessions_browser_does_not_pause(monkeypatch):
+    no_delay(monkeypatch)
+    fake = FakeSwitch(slots=4)
+
+    async def go(session, client, port):
+        await client.scrape()
+        fake.browser_login()                 # gets a session of its own
+        return await client.scrape()
+
+    assert run(fake, go).available
+    assert "browser" in fake.sessions
+
+
+def test_several_sessions_restart_relogs_in_at_once(monkeypatch):
+    no_delay(monkeypatch)
+    fake = FakeSwitch(slots=4)
+
+    async def go(session, client, port):
+        await client.scrape()
+        fake.restart()                       # all sessions gone, ours still fresh
+        return await client.scrape()
+
+    assert run(fake, go).available
+    assert fake.logins == 4

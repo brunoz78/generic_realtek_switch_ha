@@ -197,7 +197,7 @@ Zwischen den einzelnen Anfragen liegt eine Pause von 0,4 s, damit der Mikrocontr
 
 Ein SFP-Steckplatz ohne Modul erscheint als `Getrennt`, nicht als `Deaktiviert`.
 
-**Eine Sitzung zugleich:** Die Firmware kennt nur eine angemeldete Sitzung. Meldet man sich im Browser an, verliert Home Assistant seine Sitzung. Die Integration erkennt das und **pausiert die Abfrage dann für 5 Minuten** (die Entitäten sind so lange „Nicht verfügbar“), damit die Weboberfläche benutzbar bleibt; danach meldet sie sich wieder an — und meldet damit den Browser ab.
+**Anmeldungen:** Die bisherige Firmware kennt nur eine angemeldete Sitzung. Meldet man sich im Browser an, verliert Home Assistant seine Sitzung. Die Integration erkennt das und **pausiert die Abfrage dann für 5 Minuten** (die Entitäten sind so lange „Nicht verfügbar“), damit die Weboberfläche benutzbar bleibt; danach meldet sie sich wieder an — und meldet damit den Browser ab. Kennt die Firmware mehrere Sitzungen zugleich, merkt die Integration das bei der Anmeldung: Browser und Home Assistant stören sich dann nicht, und nach einem Neustart des Switches meldet sie sich sofort wieder an, ohne Pause.
 
 **Abfrage:** `POST /login` mit dem Passwort → Sitzungs-Cookie; danach `GET /information.json` (Modell, MAC, Firmware, Temperatur) und `GET /status.json` (Link, Geschwindigkeit, Paket- und Fehlerzähler pro Port). Die Neustart-Taste ruft `GET /reset` auf.
 
