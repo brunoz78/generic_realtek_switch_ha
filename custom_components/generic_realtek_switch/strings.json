@@ -36,9 +36,13 @@
       "init": {
         "title": "Switch options",
         "data": {
-          "scan_interval": "Polling interval (seconds, 10–300)"
+          "scan_interval": "Polling interval (seconds, 10–300)",
+          "firmware_repo": "Firmware updates from GitHub repository (owner/repo, RTLPlayground only)"
         }
       }
+    },
+    "error": {
+      "invalid_repo": "Enter the repository as owner/repo, e.g. brunoz78/RTLPlayground."
     }
   },
   "entity": {
@@ -111,6 +115,31 @@
           "disabled": "Disabled"
         }
       }
+    },
+    "update": {
+      "firmware_update": {
+        "name": "Firmware"
+      }
+    }
+  },
+  "exceptions": {
+    "update_no_release": {
+      "message": "No RTLPlayground firmware release found in {repo}."
+    },
+    "update_no_board": {
+      "message": "The switch did not report its board name; try again in a minute."
+    },
+    "update_no_image": {
+      "message": "Release {release} has no image for this switch ({board})."
+    },
+    "update_refused": {
+      "message": "The switch refused the image: {reason}"
+    },
+    "update_not_back": {
+      "message": "The switch did not come back within 4 minutes after the update."
+    },
+    "update_wrong_version": {
+      "message": "After the update the switch reports {found} instead of {expected}."
     }
   }
 }

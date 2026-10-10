@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from typing import Any
 
 import voluptuous as vol
@@ -13,9 +14,11 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .const import (
     CONF_FIRMWARE,
+    CONF_FIRMWARE_REPO,
     CONF_MIGRATED_FROM,
     DEFAULT_PASSWORD,
     DEFAULT_PORT,
+    DEFAULT_FIRMWARE_REPO,
     DEFAULT_SCAN_INTERVAL,
     DEFAULT_USERNAME,
     DOMAIN,
@@ -145,8 +148,14 @@ class SwitchOptionsFlow(config_entries.OptionsFlow):
         self.entry = entry
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> FlowResult:
+        errors: dict[str, str] = {}
         if user_input is not None:
-            return self.async_create_entry(title="", data=user_input)
+            repo = user_input.get(CONF_FIRMWARE_REPO, "").strip()
+            if re.fullmatch(r"[\w.-]+/[\w.-]+", repo):
+                return self.async_create_entry(
+                    title="", data={**user_input, CONF_FIRMWARE_REPO: repo}
+                )
+            errors[CONF_FIRMWARE_REPO] = "invalid_repo"
         return self.async_show_form(
             step_id="init",
             data_schema=vol.Schema({
@@ -154,5 +163,10 @@ class SwitchOptionsFlow(config_entries.OptionsFlow):
                     "scan_interval",
                     default=self.entry.options.get("scan_interval", DEFAULT_SCAN_INTERVAL),
                 ): vol.All(vol.Coerce(int), vol.Range(min=10, max=300)),
+                vol.Optional(
+                    CONF_FIRMWARE_REPO,
+                    default=self.entry.options.get(CONF_FIRMWARE_REPO, DEFAULT_FIRMWARE_REPO),
+                ): str,
             }),
+            errors=errors,
         )

@@ -29,6 +29,12 @@ RTL_LOGIN  = "/login"
 RTL_INFO   = "/information.json"
 RTL_STATUS = "/status.json"
 RTL_RESET  = "/reset"
+RTL_UPLOAD = "/upload"
+
+# Firmware updates from the GitHub releases of a RTLPlayground fork
+CONF_FIRMWARE_REPO = "firmware_repo"
+DEFAULT_FIRMWARE_REPO = "brunoz78/RTLPlayground"
+RELEASE_CHECK_INTERVAL = 3600  # seconds
 
 def object_id(ip: str, suffix: str) -> str:
     """Language-independent object id, e.g. switch_10_0_1_4_port_1_duplex.

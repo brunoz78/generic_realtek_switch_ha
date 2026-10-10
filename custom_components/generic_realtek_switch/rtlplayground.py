@@ -36,6 +36,7 @@ from .const import (
     RTL_LOGIN_PAGE,
     RTL_RESET,
     RTL_STATUS,
+    RTL_UPLOAD,
 )
 from .scraper import PortData, SwitchData
 
@@ -50,6 +51,8 @@ _RETRY_DELAY = 1.0
 _DEFAULT_SESSION_TIMEOUT = 200
 # How long to leave the switch to the web interface after it took the session
 _TAKEOVER_PAUSE = 300
+# After a firmware upload: time the switch takes to verify the image and reset
+_UPDATE_SETTLE = 15
 
 # "link" of /status.json → speed; index into LINKS in the firmware's app.js
 _LINK_SPEED = {1: "10M", 2: "100M", 3: "1000M", 4: "500M", 5: "10G", 6: "2500M", 7: "5000M"}
@@ -92,10 +95,13 @@ class RtlPlaygroundClient:
         self._session = session
         self.ip = ip
         self._password = password
+        self._port = http_port
         self._base_url = (
             f"http://{ip}:{http_port}" if http_port != 80 else f"http://{ip}"
         )
         self._session_id: str | None = None
+        # The switch serves one connection at a time: polls wait for an upload
+        self._lock = asyncio.Lock()
         self._last_ok = 0.0          # monotonic time of the last authenticated reply
         self._session_timeout = _DEFAULT_SESSION_TIMEOUT
         self._paused_until = 0.0
@@ -179,6 +185,10 @@ class RtlPlaygroundClient:
     # ------------------------------------------------------------------
 
     async def scrape(self) -> SwitchData:
+        async with self._lock:
+            return await self._scrape()
+
+    async def _scrape(self) -> SwitchData:
         unavailable = SwitchData(ip=self.ip, model="Unknown", mac="", uptime="", firmware="", available=False)
         if time.monotonic() < self._paused_until:
             _LOGGER.debug("[%s] Web interface has the session, polling paused", self.ip)
@@ -288,6 +298,53 @@ class RtlPlaygroundClient:
         self._session_id = None
         _LOGGER.warning("[%s] Reboot command sent", self.ip)
         return True
+
+    async def upload_firmware(self, image: bytes) -> None:
+        """POST the image to /upload like the web interface; the switch then resets.
+
+        Raises RuntimeError if the switch refuses the image. A connection that
+        drops after the image went out is taken as the reset, not an error.
+        """
+        async with self._lock:
+            if not self._session_id:
+                await self._login_and_probe()
+            try:
+                await self._get_json(RTL_INFO)  # make sure the session is still ours
+            except SessionLost:
+                await self._login_and_probe()
+            form = aiohttp.FormData()
+            form.add_field(
+                "uploadedfile", image, filename="rtlplayground.bin",
+                content_type="application/octet-stream",
+            )
+            _LOGGER.warning("[%s] Uploading firmware (%d bytes)", self.ip, len(image))
+            try:
+                async with self._session.post(
+                    f"{self._base_url}{RTL_UPLOAD}",
+                    data=form,
+                    headers={"Cookie": f"session={self._session_id}"},
+                    timeout=aiohttp.ClientTimeout(total=300),
+                    allow_redirects=False,
+                ) as resp:
+                    if resp.status != 200:
+                        why = (await resp.text(errors="replace")).strip().splitlines()
+                        raise RuntimeError(
+                            f"switch refused the image (HTTP {resp.status}"
+                            + (f": {why[0]}" if why else "") + ")"
+                        )
+            except (aiohttp.ClientConnectionError, asyncio.TimeoutError) as exc:
+                _LOGGER.debug("[%s] Connection closed after the upload: %s", self.ip, exc)
+            self._session_id = None
+
+    async def wait_until_back(self, timeout: float = 240) -> bool:
+        """After an update: wait for the reset, then for the web server to answer."""
+        await asyncio.sleep(_UPDATE_SETTLE)
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            if await detect_rtlplayground(self._session, self.ip, self._port):
+                return True
+            await asyncio.sleep(3)
+        return False
 
 
 def _hex(val: Any) -> int | None:

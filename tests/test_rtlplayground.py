@@ -87,6 +87,8 @@ class FakeSwitch:
         self.sessions = []
         self.logins = 0
         self.reset = False
+        self.uploaded = None
+        self.refuse_upload = False
 
     @property
     def session(self):
@@ -109,6 +111,7 @@ class FakeSwitch:
         app.router.add_get("/information.json", self.json(INFO))
         app.router.add_get("/status.json", self.json(STATUS))
         app.router.add_get("/reset", self.do_reset)
+        app.router.add_post("/upload", self.upload)
         return app
 
     async def login_page(self, request):
@@ -135,6 +138,15 @@ class FakeSwitch:
         self.reset = True
         request.transport.close()  # the switch resets without answering
         return web.Response()
+
+    async def upload(self, request):
+        if request.cookies.get("session") not in self.sessions:
+            return web.Response(status=401)
+        if self.refuse_upload:
+            return web.Response(status=400, text="Checksum error")
+        form = await request.post()
+        self.uploaded = form["uploadedfile"].file.read()
+        return web.Response(text="OK")
 
     def browser_login(self):
         self.logins += 1
@@ -256,3 +268,30 @@ def test_several_sessions_restart_relogs_in_at_once(monkeypatch):
 
     assert run(fake, go).available
     assert fake.logins == 4
+
+
+def test_upload_firmware(monkeypatch):
+    no_delay(monkeypatch)
+    fake = FakeSwitch(slots=4)
+    image = bytes(range(256)) * 2048
+
+    async def go(session, client, port):
+        await client.scrape()
+        await client.upload_firmware(image)
+
+    run(fake, go)
+    assert fake.uploaded == image
+
+
+def test_upload_refused(monkeypatch):
+    no_delay(monkeypatch)
+    fake = FakeSwitch(slots=4)
+    fake.refuse_upload = True
+
+    async def go(session, client, port):
+        try:
+            await client.upload_firmware(b"x" * 10)
+        except RuntimeError as exc:
+            return str(exc)
+
+    assert "HTTP 400" in run(fake, go)

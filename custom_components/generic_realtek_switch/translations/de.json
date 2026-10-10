@@ -36,9 +36,13 @@
       "init": {
         "title": "Optionen für den Switch",
         "data": {
-          "scan_interval": "Abfrageintervall (Sekunden, 10–300)"
+          "scan_interval": "Abfrageintervall (Sekunden, 10–300)",
+          "firmware_repo": "Firmware-Updates aus GitHub-Repository (Besitzer/Repository, nur RTLPlayground)"
         }
       }
+    },
+    "error": {
+      "invalid_repo": "Repository als Besitzer/Repository angeben, z. B. brunoz78/RTLPlayground."
     }
   },
   "entity": {
@@ -111,6 +115,31 @@
           "disabled": "Aus"
         }
       }
+    },
+    "update": {
+      "firmware_update": {
+        "name": "Firmware"
+      }
+    }
+  },
+  "exceptions": {
+    "update_no_release": {
+      "message": "In {repo} wurde kein RTLPlayground-Firmware-Release gefunden."
+    },
+    "update_no_board": {
+      "message": "Der Switch hat seine Gerätebezeichnung nicht gemeldet; bitte in einer Minute nochmals versuchen."
+    },
+    "update_no_image": {
+      "message": "Das Release {release} enthält kein Image für diesen Switch ({board})."
+    },
+    "update_refused": {
+      "message": "Der Switch hat das Image abgelehnt: {reason}"
+    },
+    "update_not_back": {
+      "message": "Der Switch war 4 Minuten nach dem Update nicht wieder erreichbar."
+    },
+    "update_wrong_version": {
+      "message": "Nach dem Update meldet der Switch {found} statt {expected}."
     }
   }
 }
