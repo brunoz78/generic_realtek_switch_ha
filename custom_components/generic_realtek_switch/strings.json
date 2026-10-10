@@ -114,6 +114,9 @@
           "enabled": "Enabled",
           "disabled": "Disabled"
         }
+      },
+      "last_boot": {
+        "name": "Last restart"
       }
     },
     "update": {

@@ -88,6 +88,7 @@ class FakeSwitch:
         self.logins = 0
         self.reset = False
         self.uploaded = None
+        self.info = dict(INFO)
         self.refuse_upload = False
 
     @property
@@ -108,7 +109,7 @@ class FakeSwitch:
         app = web.Application()
         app.router.add_get("/login.html", self.login_page)
         app.router.add_post("/login", self.login)
-        app.router.add_get("/information.json", self.json(INFO))
+        app.router.add_get("/information.json", self.json(lambda: self.info))
         app.router.add_get("/status.json", self.json(STATUS))
         app.router.add_get("/reset", self.do_reset)
         app.router.add_post("/upload", self.upload)
@@ -131,7 +132,7 @@ class FakeSwitch:
         async def handler(request):
             if request.cookies.get("session") not in self.sessions:
                 return web.Response(status=401)
-            return web.json_response(payload)
+            return web.json_response(payload() if callable(payload) else payload)
         return handler
 
     async def do_reset(self, request):
@@ -295,3 +296,29 @@ def test_upload_refused(monkeypatch):
             return str(exc)
 
     assert "HTTP 400" in run(fake, go)
+
+
+def test_uptime_and_boot_time(monkeypatch):
+    no_delay(monkeypatch)
+    fake = FakeSwitch(slots=4)
+    info = fake.info
+    info["uptime"] = "0x00015180"            # one day
+
+    async def go(session, client, port):
+        first = await client.scrape()
+        info["uptime"] = "0x00015183"            # a later poll, same boot
+        second = await client.scrape()
+        info["uptime"] = "0x0000000a"            # rebooted
+        third = await client.scrape()
+        return first, second, third
+
+    first, second, third = run(fake, go)
+    assert first.uptime_seconds == 86400
+    assert first.boot_time is not None
+    assert second.boot_time == first.boot_time
+    assert (third.boot_time - first.boot_time).total_seconds() > 86000
+
+
+def test_no_uptime_on_older_firmware():
+    d = parse()
+    assert d.uptime_seconds is None and d.boot_time is None

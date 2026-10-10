@@ -23,6 +23,7 @@ import json
 import logging
 import re
 import time
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import aiohttp
@@ -53,6 +54,8 @@ _DEFAULT_SESSION_TIMEOUT = 200
 _TAKEOVER_PAUSE = 300
 # After a firmware upload: time the switch takes to verify the image and reset
 _UPDATE_SETTLE = 15
+# A boot time that moves by less than this is still the same boot
+_BOOT_JITTER = 120
 
 # "link" of /status.json → speed; index into LINKS in the firmware's app.js
 _LINK_SPEED = {1: "10M", 2: "100M", 3: "1000M", 4: "500M", 5: "10G", 6: "2500M", 7: "5000M"}
@@ -105,6 +108,7 @@ class RtlPlaygroundClient:
         self._last_ok = 0.0          # monotonic time of the last authenticated reply
         self._session_timeout = _DEFAULT_SESSION_TIMEOUT
         self._paused_until = 0.0
+        self._boot_time: datetime | None = None
         self._multi_session: bool | None = None  # known after the first login
 
     # ------------------------------------------------------------------
@@ -224,7 +228,15 @@ class RtlPlaygroundClient:
         timeout = info.get("session_timeout") if isinstance(info, dict) else None
         if isinstance(timeout, int) and timeout > 0:
             self._session_timeout = timeout
-        return self.parse(info, status)
+        data = self.parse(info, status)
+        if data.uptime_seconds is not None:
+            boot = datetime.now(timezone.utc) - timedelta(seconds=data.uptime_seconds)
+            # The same boot, give or take the polling delay: keep the time stable
+            if self._boot_time and abs((boot - self._boot_time).total_seconds()) < _BOOT_JITTER:
+                boot = self._boot_time
+            self._boot_time = boot
+            data.boot_time = boot
+        return data
 
     def parse(self, info: dict[str, Any] | None, status: list[dict[str, Any]] | None) -> SwitchData:
         """Turn /information.json and /status.json into a SwitchData snapshot."""
@@ -270,6 +282,7 @@ class RtlPlaygroundClient:
             available=True,
             temperature=_temperature(info.get("chip_temp")),
             hostname=info.get("hostname", ""),
+            uptime_seconds=_hex(info.get("uptime")),
         )
 
     # ------------------------------------------------------------------

@@ -114,6 +114,9 @@
           "enabled": "Ein",
           "disabled": "Aus"
         }
+      },
+      "last_boot": {
+        "name": "Letzter Neustart"
       }
     },
     "update": {

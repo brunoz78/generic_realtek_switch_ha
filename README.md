@@ -193,6 +193,7 @@ Zwischen den einzelnen Anfragen liegt eine Pause von 0,4 s, damit der Mikrocontr
 | Port N, Gesendete/Empfangene Pakete, Sende-/Empfangsfehler | ✅ | ✅ |
 | Port N Duplex, Port N Flusskontrolle | ✅ | — (meldet die Firmware nicht) |
 | Temperatur des Switch-Chips | — | ✅ |
+| Letzter Neustart (Zeitpunkt, aus der Betriebszeit) | — | ✅ ab Firmware mit Betriebszeit (`uptime` in `/information.json`) |
 | Port-Name und SFP-Modul | — | als Attribute `port_name` und `sfp_module` am Sensor „Port N“ |
 | Firmware | z. B. `V1.9.1` | z. B. `RTLPlayground v0.1.0-f0aea3d` |
 

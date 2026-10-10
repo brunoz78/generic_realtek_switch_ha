@@ -19,6 +19,7 @@ import hashlib
 import logging
 import re
 import time
+from datetime import datetime
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -82,6 +83,8 @@ class SwitchData:
     available: bool = True
     temperature: float | None = None  # chip temperature in °C, if reported
     hostname: str = ""
+    uptime_seconds: int | None = None  # seconds since boot, if reported as a number
+    boot_time: datetime | None = None  # derived from uptime_seconds
 
 
 class CgiScraper:

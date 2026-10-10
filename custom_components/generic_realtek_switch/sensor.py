@@ -21,7 +21,7 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import UnitOfTemperature
+from homeassistant.const import EntityCategory, UnitOfTemperature
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity import DeviceInfo
@@ -104,10 +104,18 @@ SWITCH_SENSORS: tuple[SwitchSensorDesc, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         value_fn=lambda d: d.temperature,
     ),
+    SwitchSensorDesc(
+        key="last_boot",
+        translation_key="last_boot",
+        device_class=SensorDeviceClass.TIMESTAMP,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        icon="mdi:restart",
+        value_fn=lambda d: d.boot_time,
+    ),
 )
 
 # Switch sensors that exist only on firmware reporting the value
-_OPTIONAL_SWITCH_SENSORS = {"uptime", "temperature"}
+_OPTIONAL_SWITCH_SENSORS = {"uptime", "temperature", "last_boot"}
 
 
 # ────────────────────────────────────────────────────────────────────────────

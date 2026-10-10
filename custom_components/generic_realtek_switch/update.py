@@ -160,3 +160,7 @@ class FirmwareUpdate(CoordinatorEntity[SwitchCoordinator], UpdateEntity):
         finally:
             self._attr_in_progress = False
             self.async_write_ha_state()
+        # New firmware may report values the old one didn't (e.g. the uptime):
+        # reload so their entities get created
+        entry_id = self.coordinator.entry.entry_id
+        self.hass.async_create_task(self.hass.config_entries.async_reload(entry_id))
