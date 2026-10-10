@@ -6,6 +6,7 @@ uploads it like the web interface does and waits for the switch to come back.
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 from datetime import timedelta
 from typing import Any
@@ -40,6 +41,7 @@ from .sensor import switch_device_info
 _LOGGER = logging.getLogger(__name__)
 
 _CACHE_KEY = f"{DOMAIN}_releases"
+_LOCK_KEY = f"{DOMAIN}_install_lock"
 _PREFIX = "RTLPlayground "
 
 
@@ -50,6 +52,12 @@ def _releases(hass: HomeAssistant) -> ReleaseCache:
             async_get_clientsession(hass), RELEASE_CHECK_INTERVAL - 60
         )
     return hass.data[_CACHE_KEY]
+
+
+def _install_lock(hass: HomeAssistant) -> asyncio.Lock:
+    """One update at a time: switches chained behind each other would cut an
+    upload short when the one in front restarts."""
+    return hass.data.setdefault(_LOCK_KEY, asyncio.Lock())
 
 
 def _error(key: str, **placeholders: str) -> HomeAssistantError:
@@ -139,6 +147,12 @@ class FirmwareUpdate(CoordinatorEntity[SwitchCoordinator], UpdateEntity):
         self._attr_in_progress = True
         self.async_write_ha_state()
         try:
+            await _install_lock(self.hass).acquire()
+        except BaseException:
+            self._attr_in_progress = False
+            self.async_write_ha_state()
+            raise
+        try:
             image = await _releases(self.hass).image_for(release, board)
             if image is None:
                 raise _error("update_no_image", release=release.tag, board=board)
@@ -158,6 +172,7 @@ class FirmwareUpdate(CoordinatorEntity[SwitchCoordinator], UpdateEntity):
             self._release = release
             _LOGGER.warning("[%s] Firmware updated to %s", scraper.ip, release.version)
         finally:
+            _install_lock(self.hass).release()
             self._attr_in_progress = False
             self.async_write_ha_state()
         # New firmware may report values the old one didn't (e.g. the uptime):
