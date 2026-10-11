@@ -312,42 +312,54 @@ class RtlPlaygroundClient:
         _LOGGER.warning("[%s] Reboot command sent", self.ip)
         return True
 
-    async def upload_firmware(self, image: bytes) -> None:
-        """POST the image to /upload like the web interface; the switch then resets.
+    async def install_firmware(self, image: bytes) -> bool:
+        """Upload the image and wait for the switch to come back, as one step.
 
-        Raises RuntimeError if the switch refuses the image. A connection that
-        drops after the image went out is taken as the reset, not an error.
+        Polls wait for the whole of it instead of failing against a switch
+        that is restarting. Returns False if it did not come back in time.
         """
         async with self._lock:
-            if not self._session_id:
-                await self._login_and_probe()
-            try:
-                await self._get_json(RTL_INFO)  # make sure the session is still ours
-            except SessionLost:
-                await self._login_and_probe()
-            form = aiohttp.FormData()
-            form.add_field(
-                "uploadedfile", image, filename="rtlplayground.bin",
-                content_type="application/octet-stream",
-            )
-            _LOGGER.warning("[%s] Uploading firmware (%d bytes)", self.ip, len(image))
-            try:
-                async with self._session.post(
-                    f"{self._base_url}{RTL_UPLOAD}",
-                    data=form,
-                    headers={"Cookie": f"session={self._session_id}"},
-                    timeout=aiohttp.ClientTimeout(total=300),
-                    allow_redirects=False,
-                ) as resp:
-                    if resp.status != 200:
-                        why = (await resp.text(errors="replace")).strip().splitlines()
-                        raise RuntimeError(
-                            f"switch refused the image (HTTP {resp.status}"
-                            + (f": {why[0]}" if why else "") + ")"
-                        )
-            except (aiohttp.ClientConnectionError, asyncio.TimeoutError) as exc:
-                _LOGGER.debug("[%s] Connection closed after the upload: %s", self.ip, exc)
-            self._session_id = None
+            await self._upload(image)
+            return await self.wait_until_back()
+
+    async def upload_firmware(self, image: bytes) -> None:
+        """POST the image to /upload like the web interface; the switch then resets."""
+        async with self._lock:
+            await self._upload(image)
+
+    async def _upload(self, image: bytes) -> None:
+        """Raises RuntimeError if the switch refuses the image. A connection that
+        drops after the image went out is taken as the reset, not an error.
+        """
+        if not self._session_id:
+            await self._login_and_probe()
+        try:
+            await self._get_json(RTL_INFO)  # make sure the session is still ours
+        except SessionLost:
+            await self._login_and_probe()
+        form = aiohttp.FormData()
+        form.add_field(
+            "uploadedfile", image, filename="rtlplayground.bin",
+            content_type="application/octet-stream",
+        )
+        _LOGGER.warning("[%s] Uploading firmware (%d bytes)", self.ip, len(image))
+        try:
+            async with self._session.post(
+                f"{self._base_url}{RTL_UPLOAD}",
+                data=form,
+                headers={"Cookie": f"session={self._session_id}"},
+                timeout=aiohttp.ClientTimeout(total=300),
+                allow_redirects=False,
+            ) as resp:
+                if resp.status != 200:
+                    why = (await resp.text(errors="replace")).strip().splitlines()
+                    raise RuntimeError(
+                        f"switch refused the image (HTTP {resp.status}"
+                        + (f": {why[0]}" if why else "") + ")"
+                    )
+        except (aiohttp.ClientConnectionError, asyncio.TimeoutError) as exc:
+            _LOGGER.debug("[%s] Connection closed after the upload: %s", self.ip, exc)
+        self._session_id = None
 
     async def wait_until_back(self, timeout: float = 240) -> bool:
         """After an update: wait for the reset, then for the web server to answer."""

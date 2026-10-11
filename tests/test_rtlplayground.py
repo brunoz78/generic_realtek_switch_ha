@@ -322,3 +322,19 @@ def test_uptime_and_boot_time(monkeypatch):
 def test_no_uptime_on_older_firmware():
     d = parse()
     assert d.uptime_seconds is None and d.boot_time is None
+
+
+def test_install_firmware_waits_for_the_switch(monkeypatch):
+    no_delay(monkeypatch)
+    monkeypatch.setattr(rtlplayground, "_UPDATE_SETTLE", 0)
+    fake = FakeSwitch(slots=4)
+    image = bytes(range(256)) * 2048
+
+    async def go(session, client, port):
+        await client.scrape()
+        back = await client.install_firmware(image)
+        return back, await client.scrape()
+
+    back, after = run(fake, go)
+    assert back and after.available
+    assert fake.uploaded == image

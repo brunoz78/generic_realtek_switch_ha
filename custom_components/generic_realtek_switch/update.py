@@ -157,10 +157,10 @@ class FirmwareUpdate(CoordinatorEntity[SwitchCoordinator], UpdateEntity):
             if image is None:
                 raise _error("update_no_image", release=release.tag, board=board)
             try:
-                await scraper.upload_firmware(image)
+                back = await scraper.install_firmware(image)
             except RuntimeError as exc:
                 raise _error("update_refused", reason=str(exc)) from exc
-            if not await scraper.wait_until_back():
+            if not back:
                 raise _error("update_not_back")
             await self.coordinator.async_refresh()
             if self.installed_version != release.version:
