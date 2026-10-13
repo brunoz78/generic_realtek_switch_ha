@@ -19,16 +19,37 @@
           "username": "Benutzername",
           "password": "Passwort"
         }
+      },
+      "reauth_confirm": {
+        "title": "Passwort geändert?",
+        "description": "Der Switch {host} hat das gespeicherte Passwort abgelehnt. Gib das aktuelle Passwort ein.",
+        "data": {
+          "username": "Benutzername",
+          "password": "Passwort"
+        }
+      },
+      "reconfigure": {
+        "title": "Switch-Einstellungen ändern",
+        "description": "Adresse oder Zugangsdaten des Switches ändern. Entitäten, Verlauf und Dashboards bleiben erhalten. Passwort leer lassen, um das bisherige zu behalten.",
+        "data": {
+          "host": "IP-Adresse des Switches",
+          "port": "HTTP-Port",
+          "username": "Benutzername",
+          "password": "Passwort"
+        }
       }
     },
     "error": {
       "cannot_connect": "Der Switch ist nicht erreichbar. Bitte IP-Adresse und Zugangsdaten prüfen.",
-      "unknown": "Unerwarteter Fehler — bitte die Home-Assistant-Protokolle prüfen."
+      "unknown": "Unerwarteter Fehler — bitte die Home-Assistant-Protokolle prüfen.",
+      "invalid_auth": "Der Switch hat das Passwort abgelehnt."
     },
     "abort": {
       "already_configured": "Dieser Switch ist bereits eingerichtet.",
       "migration_started": "{count} Switches werden übernommen. Sie erscheinen in wenigen Sekunden mit denselben Entitäten wie bisher; die alten Einträge werden entfernt.",
-      "migration_source_missing": "Der zu übernehmende Switch existiert nicht mehr."
+      "migration_source_missing": "Der zu übernehmende Switch existiert nicht mehr.",
+      "reauth_successful": "Das neue Passwort ist gespeichert, der Switch ist wieder verbunden.",
+      "reconfigure_successful": "Die Einstellungen sind gespeichert, der Switch ist wieder verbunden."
     }
   },
   "options": {

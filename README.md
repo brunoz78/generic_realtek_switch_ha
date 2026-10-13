@@ -84,6 +84,8 @@ Getestet mit RTLPlayground `v0.1.0-1856aeb`. Die Weboberfläche ist auf allen Ge
 
 Für jeden Switch die Integration einmal hinzufügen. Nach der Einrichtung kannst du über **Konfigurieren** auf der Integrationskarte das Abfrageintervall anpassen (10–300 s).
 
+**IP-Adresse oder Passwort später ändern:** Im Menü (⋮) des Switch-Eintrags **Neu konfigurieren** wählen. Entitäten, Verlauf und Dashboards bleiben erhalten. Lehnt ein Switch mit RTLPlayground das gespeicherte Passwort ab, fragt Home Assistant von sich aus nach dem neuen (Meldung unter *Einstellungen → Geräte & Dienste*).
+
 ---
 
 ## Entitäten

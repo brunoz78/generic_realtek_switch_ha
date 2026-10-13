@@ -65,6 +65,10 @@ class SessionLost(Exception):
     """The switch answered 401: our session expired or was taken over."""
 
 
+class AuthFailed(Exception):
+    """The switch rejected the password."""
+
+
 async def detect_rtlplayground(
     session: aiohttp.ClientSession, ip: str, http_port: int = 80
 ) -> bool | None:
@@ -126,7 +130,10 @@ class RtlPlaygroundClient:
                 ) as resp:
                     cookie = resp.cookies.get("session")
                     if not cookie or not cookie.value:
-                        raise RuntimeError("password rejected")
+                        # A wrong password is sent back to the login page
+                        if resp.headers.get("Location", "").endswith("login.html"):
+                            raise AuthFailed(f"Password rejected by {self.ip}")
+                        raise RuntimeError("no session in the login reply")
                     self._session_id = cookie.value
                     self._last_ok = time.monotonic()
                     _LOGGER.debug("[%s] Login OK", self.ip)
@@ -220,6 +227,9 @@ class RtlPlaygroundClient:
                 await self._login_and_probe()
                 info = await self._get_json(RTL_INFO)
                 status = await self._get_json(RTL_STATUS)
+        except AuthFailed:
+            self._session_id = None
+            raise
         except Exception as exc:
             _LOGGER.error("[%s] RTLPlayground poll failed: %s", self.ip, exc)
             self._session_id = None

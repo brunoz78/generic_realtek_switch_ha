@@ -15,6 +15,7 @@ from datetime import timedelta
 from homeassistant.config_entries import ConfigEntry, ConfigEntryState
 from homeassistant.const import CONF_HOST, CONF_PASSWORD, CONF_PORT, CONF_USERNAME, Platform
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
@@ -30,7 +31,7 @@ from .const import (
     OLD_DOMAIN,
     object_id,
 )
-from .rtlplayground import RtlPlaygroundClient, detect_rtlplayground
+from .rtlplayground import AuthFailed, RtlPlaygroundClient, detect_rtlplayground
 from .scraper import CgiScraper, SwitchData
 
 _LOGGER = logging.getLogger(__name__)
@@ -257,7 +258,11 @@ class SwitchCoordinator(DataUpdateCoordinator[SwitchData]):
         )
 
     async def _async_update_data(self) -> SwitchData:
-        data = await self.scraper.scrape()
+        try:
+            data = await self.scraper.scrape()
+        except AuthFailed as exc:
+            # Home Assistant asks for the new password (reauth flow)
+            raise ConfigEntryAuthFailed(str(exc)) from exc
         if not data.available:
             raise UpdateFailed(f"Switch {self.scraper.ip} is unreachable")
         return data

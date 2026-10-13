@@ -19,16 +19,37 @@
           "username": "Username",
           "password": "Password"
         }
+      },
+      "reauth_confirm": {
+        "title": "Password changed?",
+        "description": "The switch {host} rejected the stored password. Enter the current one.",
+        "data": {
+          "username": "Username",
+          "password": "Password"
+        }
+      },
+      "reconfigure": {
+        "title": "Change switch settings",
+        "description": "Change the address or the credentials of the switch. Entities, history and dashboards stay as they are. Leave the password empty to keep the current one.",
+        "data": {
+          "host": "Switch IP Address",
+          "port": "HTTP Port",
+          "username": "Username",
+          "password": "Password"
+        }
       }
     },
     "error": {
       "cannot_connect": "Cannot reach the switch. Check the IP address and credentials.",
-      "unknown": "Unexpected error — check the Home Assistant logs."
+      "unknown": "Unexpected error — check the Home Assistant logs.",
+      "invalid_auth": "The switch rejected the password."
     },
     "abort": {
       "already_configured": "This switch is already configured.",
       "migration_started": "Taking over {count} switches. They appear in a few seconds, with the same entities as before; the old entries are removed.",
-      "migration_source_missing": "The switch to take over no longer exists."
+      "migration_source_missing": "The switch to take over no longer exists.",
+      "reauth_successful": "The new password was saved; the switch is connected again.",
+      "reconfigure_successful": "The settings were saved; the switch is connected again."
     }
   },
   "options": {

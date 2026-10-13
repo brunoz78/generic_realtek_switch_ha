@@ -8,11 +8,12 @@ import json
 import pathlib
 
 import aiohttp
+import pytest
 from aiohttp import web
 from aiohttp.test_utils import TestServer
 
 from generic_realtek_switch import rtlplayground
-from generic_realtek_switch.rtlplayground import RtlPlaygroundClient, detect_rtlplayground
+from generic_realtek_switch.rtlplayground import AuthFailed, RtlPlaygroundClient, detect_rtlplayground
 
 FIXTURES = pathlib.Path(__file__).parent / "fixtures" / "rtlplayground_swtgw218as"
 INFO = json.loads((FIXTURES / "information.json").read_text(encoding="utf-8"))
@@ -187,8 +188,8 @@ def test_detect_and_scrape(monkeypatch):
 def test_wrong_password(monkeypatch):
     no_delay(monkeypatch)
     fake = FakeSwitch(password="geheim")
-    d = run(fake, lambda s, c, p: c.scrape())
-    assert not d.available
+    with pytest.raises(AuthFailed):
+        run(fake, lambda s, c, p: c.scrape())
 
 
 def test_session_kept_between_polls(monkeypatch):
