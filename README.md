@@ -31,8 +31,6 @@ Andere Switches mit Realtek RTL8372/RTL8373 und derselben Weboberfläche (Anmeld
 
 ### Mit der Ersatz-Firmware [RTLPlayground](#rtlplayground)
 
-Ab Version 2.1.0 der Integration.
-
 | Modell | Ports | SFP+ | Status |
 |--------|-------|------|--------|
 | keepLink KP-9000-9XHML-X (HW V3.1) | 8 × 2.5GbE | 1 × 10G | ✅ Getestet |
@@ -40,7 +38,7 @@ Ab Version 2.1.0 der Integration.
 | HORACO ZX-SWTGW218AS (HW V1.1) | 8 × 2.5GbE | 1 × 10G | ✅ Getestet |
 | HORACO ZX-SWTGW215AS (HW V1.1) | 5 × 2.5GbE | 1 × 10G | ✅ Getestet |
 
-Getestet mit RTLPlayground `v0.1.0-0e9c997`. Die Weboberfläche ist auf allen Geräten gleich; jeder Switch aus der [Geräteliste von RTLPlayground](https://github.com/logicog/RTLPlayground/blob/main/doc/supported_devices.md) sollte deshalb funktionieren.
+Getestet mit RTLPlayground `v0.1.0-1856aeb`. Die Weboberfläche ist auf allen Geräten gleich; jeder Switch aus der [Geräteliste von RTLPlayground](https://github.com/logicog/RTLPlayground/blob/main/doc/supported_devices.md) sollte deshalb funktionieren.
 
 **Legende:** ✅ selbst getestet · ☑️ von anderen bestätigt oder sehr ähnlich
 
