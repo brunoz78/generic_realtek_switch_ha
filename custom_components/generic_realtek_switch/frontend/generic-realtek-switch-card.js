@@ -12,6 +12,9 @@
  *   expected:               # optional: ports that should run at least this fast
  *     2: 2.5G
  *     8: 2.5G
+ *   show_reboot: true       # optional: actions in the header, all on by default
+ *   show_update: true
+ *   show_web: true
  */
 const DOMAIN = "generic_realtek_switch";
 const CARD = "generic-realtek-switch-card";
@@ -37,12 +40,20 @@ const TEXT = {
     title: "Titel (optional)", learned: "Gelernte Geräte", below: (n) => `${n} unter Soll`,
     want: (w, is) => `Soll ${w}, ist ${is}`,
     expected: "Soll-Geschwindigkeit pro Port (optional, z. B. 2:2.5G, 8:2.5G)",
+    reboot: "Neustart", reboot_q: (n) => `Switch ${n} wirklich neu starten? Die angeschlossenen Geräte sind kurz offline.`,
+    update: "Update", updating: "Update läuft…", update_t: (v) => `Firmware-Update auf ${v} verfügbar`,
+    web: "Weboberfläche öffnen",
+    show_reboot: "Neustart-Knopf", show_update: "Hinweis auf Firmware-Update", show_web: "Link zur Weboberfläche",
   },
   en: {
     down: "down", off: "off", na: "–", up: "connected", none: "No switch selected", device: "Switch",
     title: "Title (optional)", learned: "Devices learned", below: (n) => `${n} below target`,
     want: (w, is) => `expected ${w}, is ${is}`,
     expected: "Expected speed per port (optional, e.g. 2:2.5G, 8:2.5G)",
+    reboot: "Restart", reboot_q: (n) => `Really restart switch ${n}? The connected devices are offline for a moment.`,
+    update: "Update", updating: "Updating…", update_t: (v) => `Firmware update to ${v} available`,
+    web: "Open web interface",
+    show_reboot: "Restart button", show_update: "Firmware update notice", show_web: "Link to the web interface",
   },
 };
 
@@ -93,6 +104,14 @@ function portEntities(hass, deviceId) {
     .sort((a, b) => a.num - b.num);
 }
 
+// Entity of the device by its translation key, e.g. the reboot button
+function deviceEntity(hass, deviceId, domain, key) {
+  const e = Object.values(hass.entities || {}).find(
+    (x) => x.device_id === deviceId && x.platform === DOMAIN && x.translation_key === key && x.entity_id.startsWith(`${domain}.`)
+  );
+  return e ? e.entity_id : undefined;
+}
+
 function firstDevice(hass) {
   const e = Object.values(hass.entities || {}).find(
     (x) => x.platform === DOMAIN && x.translation_key === "port" && x.device_id
@@ -141,9 +160,16 @@ class GenericRealtekSwitchCard extends HTMLElement {
     const title = this._config.title || dev?.name_by_user || dev?.name || "";
     const dark = !!hass.themes?.darkMode;
     const expected = parseExpected(this._config.expected);
+    const cfg = this._config;
+    const rebootId = cfg.show_reboot !== false ? deviceEntity(hass, cfg.device, "button", "reboot") : undefined;
+    const updateId = cfg.show_update !== false ? deviceEntity(hass, cfg.device, "update", "firmware_update") : undefined;
+    const upd = updateId ? hass.states[updateId] : undefined;
+    const updateOn = upd && (upd.state === "on" || upd.attributes?.in_progress);
+    const web = cfg.show_web !== false ? dev?.configuration_url : undefined;
 
     // Only redraw when something visible changed
-    const sig = JSON.stringify([title, dark, t.up, expected, ports.map((p) => [p.id, p.st?.state, p.st?.attributes?.port_name, p.st?.attributes?.learned_macs])]);
+    const sig = JSON.stringify([title, dark, t.up, expected, rebootId, upd?.state, upd?.attributes?.in_progress,
+      upd?.attributes?.latest_version, web, ports.map((p) => [p.id, p.st?.state, p.st?.attributes?.port_name, p.st?.attributes?.learned_macs])]);
     if (sig === this._sig) return;
     this._sig = sig;
 
@@ -183,10 +209,19 @@ class GenericRealtekSwitchCard extends HTMLElement {
         ${warn ? `<span class="wb">!</span>` : ""}<span class="pn">${p.num}</span><span class="jack"></span><span class="ps">${esc(label)}</span></div>`;
     });
 
+    const acts = [
+      updateOn
+        ? `<button class="act upd" data-act="update" title="${esc(t.update_t(upd.attributes?.latest_version || ""))}"><ha-icon icon="mdi:package-up"></ha-icon>${esc(upd.attributes?.in_progress ? t.updating : t.update)}</button>`
+        : "",
+      rebootId ? `<button class="act" data-act="reboot" title="${esc(t.reboot)}" aria-label="${esc(t.reboot)}"><ha-icon icon="mdi:restart"></ha-icon></button>` : "",
+      web ? `<a class="act" href="${esc(web)}" target="_blank" rel="noopener" title="${esc(t.web)}" aria-label="${esc(t.web)}"><ha-icon icon="mdi:open-in-new"></ha-icon></a>` : "",
+    ].join("");
+    const actsHtml = acts ? `<span class="acts">${acts}</span>` : "";
+
     this.shadowRoot.innerHTML = `
       <style>
         ha-card { padding: 12px 16px 14px; }
-        .head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 10px; }
+        .head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 2px 8px; margin-bottom: 8px; }
         .title { font-size: 16px; font-weight: 500; color: var(--primary-text-color); }
         .count { font-size: 12px; color: var(--secondary-text-color); }
         .strip { display: flex; flex-wrap: wrap; gap: 6px; padding-top: 4px; }
@@ -213,12 +248,29 @@ class GenericRealtekSwitchCard extends HTMLElement {
           background: var(--error-color, #db4437); color: #fff; font-size: 11px; font-weight: 700; line-height: 15px;
         }
         .bad { font-size: 12px; color: var(--error-color, #db4437); font-weight: 600; }
+        .acts { margin-left: auto; display: flex; gap: 2px; align-items: center; align-self: center; }
+        .act {
+          display: inline-flex; align-items: center; gap: 4px; height: 30px; min-width: 30px; padding: 0 6px;
+          border: 0; border-radius: 15px; background: none; color: var(--secondary-text-color);
+          cursor: pointer; font: inherit; font-size: 12px; text-decoration: none; box-sizing: border-box; justify-content: center;
+        }
+        .act:hover { background: var(--secondary-background-color); color: var(--primary-text-color); }
+        .act:focus-visible { outline: 2px solid var(--primary-color); }
+        .act ha-icon { --mdc-icon-size: 20px; }
+        .act.upd { color: var(--primary-color); font-weight: 600; background: color-mix(in srgb, var(--primary-color) 12%, transparent); }
         .none { color: var(--secondary-text-color); font-size: 14px; }
       </style>
       <ha-card>
-        ${title || ports.length ? `<div class="head"><span class="title">${esc(title)}</span>${ports.length ? `<span class="count">${up} / ${ports.length} ${esc(t.up)}</span>` : ""}${below ? `<span class="bad">⚠ ${esc(t.below(below))}</span>` : ""}</div>` : ""}
+        ${title || ports.length ? `<div class="head"><span class="title">${esc(title)}</span>${ports.length ? `<span class="count">${up} / ${ports.length} ${esc(t.up)}</span>` : ""}${below ? `<span class="bad">⚠ ${esc(t.below(below))}</span>` : ""}${actsHtml}</div>` : ""}
         ${ports.length ? `<div class="strip">${tiles.join("")}</div>` : `<div class="none">${esc(t.none)}</div>`}
       </ha-card>`;
+
+    const more = (entityId) =>
+      this.dispatchEvent(new CustomEvent("hass-more-info", { bubbles: true, composed: true, detail: { entityId } }));
+    this.shadowRoot.querySelector('[data-act="update"]')?.addEventListener("click", () => more(updateId));
+    this.shadowRoot.querySelector('[data-act="reboot"]')?.addEventListener("click", () => {
+      if (window.confirm(t.reboot_q(title))) hass.callService("button", "press", { entity_id: rebootId });
+    });
 
     this.shadowRoot.querySelectorAll(".port").forEach((el) => {
       const open = () =>
@@ -254,6 +306,8 @@ class GenericRealtekSwitchCardEditor extends HTMLElement {
         if (expected_text !== undefined) this._typed = expected_text;
         const config = { ...this._config, ...value };
         if (!config.title) delete config.title;
+        // Actions are on by default: only store the ones turned off
+        for (const k of ["show_reboot", "show_update", "show_web"]) if (config[k] !== false) delete config[k];
         if (expected_text !== undefined) {
           const exp = parseExpected(expected_text);
           const keys = Object.keys(exp);
@@ -271,13 +325,20 @@ class GenericRealtekSwitchCardEditor extends HTMLElement {
       { name: "device", required: true, selector: { device: { integration: DOMAIN } } },
       { name: "title", selector: { text: {} } },
       { name: "expected_text", selector: { text: {} } },
+      { name: "show_reboot", selector: { boolean: {} } },
+      { name: "show_update", selector: { boolean: {} } },
+      { name: "show_web", selector: { boolean: {} } },
     ];
-    this._form.computeLabel = (s) => ({ device: t.device, title: t.title, expected_text: t.expected })[s.name];
+    this._form.computeLabel = (s) => (
+      { device: t.device, title: t.title, expected_text: t.expected, show_reboot: t.show_reboot, show_update: t.show_update, show_web: t.show_web }
+    )[s.name];
     // Keep what is being typed; the stored config only holds the parsed ports
     if (this._typed === undefined || expectedText(this._typed) !== expectedText(this._config.expected)) {
       this._typed = expectedText(this._config.expected);
     }
-    this._form.data = { ...this._config, expected_text: this._typed };
+    this._form.data = {
+      show_reboot: true, show_update: true, show_web: true, ...this._config, expected_text: this._typed,
+    };
   }
 }
 

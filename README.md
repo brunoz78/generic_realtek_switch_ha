@@ -150,6 +150,8 @@ expected:             # optional: ports that should run at least this fast
 
 **Expected speed:** for ports listed under `expected` (in the card editor: "Expected speed per port", e.g. `2:2.5G, 8:2.5G`) the card warns as soon as the port runs slower or is disconnected: red frame with a `!` badge, "⚠ 1 below target" in the header and "expected 2.5G, is 1G" in the tooltip. Disabled ports don't warn.
 
+**Actions in the header:** ↻ restarts the switch (after asking), **Update** appears when the firmware entity offers a new version and opens it, ↗ opens the web interface of the switch. Each can be switched off in the card editor (`show_reboot`, `show_update`, `show_web`: `false`).
+
 After an update of the integration the browser loads the new card by itself; if not, reload the page once with Ctrl+F5.
 
 ---
