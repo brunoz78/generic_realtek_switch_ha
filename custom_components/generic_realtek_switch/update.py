@@ -100,10 +100,13 @@ class FirmwareUpdate(CoordinatorEntity[SwitchCoordinator], UpdateEntity):
         self._attr_device_info = switch_device_info(coordinator)
         self._repo = repo
         self._release: FirmwareRelease | None = None
+        # Whether the latest release holds an image for this switch
+        self._fits = False
 
     async def async_added_to_hass(self) -> None:
         await super().async_added_to_hass()
-        await self._async_check()
+        # In the background: checking a new release can mean downloading images
+        self.hass.async_create_background_task(self._async_check(), f"{self.entity_id} release check")
         self.async_on_remove(
             async_track_time_interval(
                 self.hass, self._async_check, timedelta(seconds=RELEASE_CHECK_INTERVAL)
@@ -111,7 +114,17 @@ class FirmwareUpdate(CoordinatorEntity[SwitchCoordinator], UpdateEntity):
         )
 
     async def _async_check(self, _now: Any = None) -> None:
-        self._release = await _releases(self.hass).latest(self._repo)
+        releases = _releases(self.hass)
+        release = await releases.latest(self._repo)
+        board = self.coordinator.data.model if self.coordinator.data else ""
+        # Offer a release only if it has an image for this switch: the default
+        # repository builds a few boards, not every one RTLPlayground supports
+        fits = False
+        if release and board and board != "Unknown":
+            fits = release.version == self.installed_version or await releases.has_image_for(
+                release, board
+            )
+        self._release, self._fits = release, fits
         self.async_write_ha_state()
 
     @property
@@ -122,7 +135,9 @@ class FirmwareUpdate(CoordinatorEntity[SwitchCoordinator], UpdateEntity):
 
     @property
     def latest_version(self) -> str | None:
-        return self._release.version if self._release else self.installed_version
+        if self._release and self._fits:
+            return self._release.version
+        return self.installed_version
 
     @property
     def release_url(self) -> str | None:

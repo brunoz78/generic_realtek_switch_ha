@@ -8,6 +8,7 @@ interface makes before an upload.
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 import re
 import time
@@ -84,6 +85,9 @@ class ReleaseCache:
         self._session = session
         self._max_age = max_age
         self._cache: dict[str, tuple[float, FirmwareRelease | None]] = {}
+        # (release tag, board name) → name of the fitting image, None if none fits
+        self._fits: dict[tuple[str, str], str | None] = {}
+        self._fit_lock = asyncio.Lock()
 
     async def latest(self, repo: str, force: bool = False) -> FirmwareRelease | None:
         cached = self._cache.get(repo)
@@ -101,23 +105,47 @@ class ReleaseCache:
         self._cache[repo] = (time.monotonic(), release)
         return release
 
+    async def _download(self, asset: FirmwareAsset) -> bytes | None:
+        try:
+            async with self._session.get(
+                asset.url, headers={"User-Agent": _HEADERS["User-Agent"]},
+                timeout=aiohttp.ClientTimeout(total=120),
+            ) as resp:
+                resp.raise_for_status()
+                return await resp.read()
+        except (aiohttp.ClientError, TimeoutError) as exc:
+            _LOGGER.warning("Download of %s failed: %s", asset.name, exc)
+            return None
+
     async def image_for(self, release: FirmwareRelease, board_name: str) -> bytes | None:
         """Download the images of a release until one fits the board."""
+        known = self._fits.get((release.tag, board_name), ...)
+        if known is None:
+            return None  # checked before: no image of this release fits
         # The board target usually resembles the reported name: try those first
         key = re.sub(r"[^A-Z0-9]", "", board_name.upper())
-        ordered = sorted(release.assets, key=lambda a: a.board.replace("_", "") not in key)
+        ordered = sorted(
+            release.assets,
+            key=lambda a: (a.name != known, a.board.replace("_", "") not in key),
+        )
+        complete = True
         for asset in ordered:
-            try:
-                async with self._session.get(
-                    asset.url, headers={"User-Agent": _HEADERS["User-Agent"]},
-                    timeout=aiohttp.ClientTimeout(total=120),
-                ) as resp:
-                    resp.raise_for_status()
-                    image = await resp.read()
-            except (aiohttp.ClientError, TimeoutError) as exc:
-                _LOGGER.warning("Download of %s failed: %s", asset.name, exc)
+            image = await self._download(asset)
+            if image is None:
+                complete = False
                 continue
             if image_valid(image) and image_for_board(image, board_name):
                 _LOGGER.debug("%s fits %s", asset.name, board_name)
+                self._fits[(release.tag, board_name)] = asset.name
                 return image
+        if complete:
+            # Remember only a definite answer, not one cut short by a failed download
+            self._fits[(release.tag, board_name)] = None
         return None
+
+    async def has_image_for(self, release: FirmwareRelease, board_name: str) -> bool:
+        """Whether the release holds an image for the board; checked once per release."""
+        async with self._fit_lock:
+            if (release.tag, board_name) not in self._fits:
+                await self.image_for(release, board_name)
+            return self._fits.get((release.tag, board_name)) is not None
