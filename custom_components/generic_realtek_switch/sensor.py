@@ -361,6 +361,7 @@ class PortLevelSensor(CoordinatorEntity[SwitchCoordinator], SensorEntity):
         if not p:
             return {}
         attrs = {
+            "port":         int(p.port) if p.port.isdigit() else p.port,
             "link":         p.link,
             "speed":        p.speed,
             "duplex":       p.duplex,

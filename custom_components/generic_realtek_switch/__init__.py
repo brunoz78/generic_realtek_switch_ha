@@ -11,15 +11,20 @@ import inspect
 import logging
 import re
 from datetime import timedelta
+from pathlib import Path
 
+from homeassistant.components import frontend
 from homeassistant.config_entries import ConfigEntry, ConfigEntryState
 from homeassistant.const import CONF_HOST, CONF_PASSWORD, CONF_PORT, CONF_USERNAME, Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
+from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.typing import ConfigType
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+from homeassistant.loader import async_get_integration
 
 from .const import (
     CONF_FIRMWARE,
@@ -41,6 +46,29 @@ PLATFORMS: list[Platform] = [
     Platform.BUTTON,
     Platform.UPDATE,
 ]
+
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
+
+# Dashboard card with the port strip, served and loaded by the integration
+_CARD_FILE = "generic-realtek-switch-card.js"
+_CARD_URL = f"/{DOMAIN}/{_CARD_FILE}"
+
+
+async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
+    """Make the port strip card available on every dashboard."""
+    if hass.http is None:
+        return True
+    path = str(Path(__file__).parent / "frontend" / _CARD_FILE)
+    try:
+        from homeassistant.components.http import StaticPathConfig
+
+        await hass.http.async_register_static_paths([StaticPathConfig(_CARD_URL, path, True)])
+    except ImportError:  # Home Assistant before 2024.7
+        hass.http.register_static_path(_CARD_URL, path, True)
+    version = (await async_get_integration(hass, DOMAIN)).version
+    # The version in the URL makes browsers load a new card after an update
+    frontend.add_extra_js_url(hass, f"{_CARD_URL}?v={version}")
+    return True
 
 
 async def _async_take_over(hass: HomeAssistant, entry: ConfigEntry) -> None:

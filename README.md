@@ -49,6 +49,7 @@ Getestet mit RTLPlayground `v0.1.0-1856aeb`. Die Weboberfläche ist auf allen Ge
 ## Funktionen
 
 - 🔌 **Port-Überwachung** — ein Sensor pro Port mit Verbindung und Geschwindigkeit (z. B. `Getrennt`, `1000M`, `2500M`), optional Duplex, Flusskontrolle, Paket- und Fehlerzähler
+- 🟩 **Port-Leiste fürs Dashboard** — eigene Karte zeigt alle Ports eines Switches wie in der Weboberfläche von RTLPlayground, Farbe nach Geschwindigkeit
 - 🔄 **Neustart-Taste** — Switch per Knopfdruck aus jedem Dashboard oder jeder Automation neu starten
 - ⬆️ **Firmware-Update** — bei RTLPlayground neue Firmware direkt aus Home Assistant aufspielen, das passende Image wird automatisch gewählt
 - ⚡ **Direkte Abfrage im LAN** — vollständig lokal, keine Cloud, kein Proxy
@@ -125,6 +126,22 @@ Deaktivierte Entitäten lassen sich bei Bedarf unter **Einstellungen → Geräte
 Schlägt das Lesen der Statistikseite einmal fehl, zeigen die Paket- und Fehlerzähler kurz „Unbekannt“ statt `0`. So hält Home Assistant einen Aussetzer nicht fälschlich für einen Zählerreset, der die Langzeitstatistik verfälschen würde.
 
 Die Entitäts-IDs sind unabhängig von der Sprache immer englisch und folgen dem Muster `sensor.switch_192_168_1_100_port_3`, `sensor.switch_192_168_1_100_port_3_duplex`, `…_flow_control`, `…_tx_packets`, `…_rx_errors`, `…_learned_macs` usw. In Automationen lauten die Zustände des Port-Sensors `disconnected`, `disabled`, `10m`, `100m`, `1000m`, `2500m`, `5000m` und `10g`.
+
+---
+
+## Dashboard-Karte „Port-Leiste“
+
+Die Integration bringt eine eigene Karte mit, die alle Ports eines Switches als Leiste zeigt: Farbe nach Geschwindigkeit (gelb 10/100M, grün 1G, türkis 2.5G/5G, blau 10G), `getrennt` grau, abgeschaltete Ports gestrichelt. Ein Klick auf einen Port öffnet seine Details; beim Darüberfahren erscheinen Portname, SFP-Modul und gelernte Geräte.
+
+Die Karte wird automatisch geladen, unter *Ressourcen* ist nichts einzutragen. Im Dashboard **Karte hinzufügen → Generic Realtek Switch** wählen und den Switch auswählen. Oder in YAML:
+
+```yaml
+type: custom:generic-realtek-switch-card
+device: <Geräte-ID>   # im Karten-Editor auswählen
+title: Keller         # optional, sonst der Gerätename
+```
+
+Nach einem Update der Integration lädt der Browser die neue Karte von selbst; falls nicht, die Seite einmal mit Strg+F5 neu laden.
 
 ---
 
