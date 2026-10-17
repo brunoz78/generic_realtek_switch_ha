@@ -342,10 +342,26 @@ class GenericRealtekSwitchCardEditor extends HTMLElement {
   }
 }
 
-if (!customElements.get(CARD)) {
-  customElements.define(CARD, GenericRealtekSwitchCard);
-  customElements.define(`${CARD}-editor`, GenericRealtekSwitchCardEditor);
-  window.customCards = window.customCards || [];
+// Register the card. Some other cards swap the custom element registry for a
+// polyfill while the dashboard loads; a definition made in that moment is
+// lost. So check again for a few seconds and define once more if needed (with
+// a fresh subclass, as a constructor may only be registered once).
+function register() {
+  try {
+    if (!customElements.get(CARD)) customElements.define(CARD, class extends GenericRealtekSwitchCard {});
+    if (!customElements.get(`${CARD}-editor`)) {
+      customElements.define(`${CARD}-editor`, class extends GenericRealtekSwitchCardEditor {});
+    }
+  } catch (err) {
+    console.warn(`${CARD}: registration failed, retrying`, err);
+  }
+}
+
+register();
+for (const ms of [50, 250, 1000, 2500, 5000, 10000]) setTimeout(register, ms);
+
+window.customCards = window.customCards || [];
+if (!window.customCards.some((c) => c.type === CARD)) {
   window.customCards.push({
     type: CARD,
     name: "Generic Realtek Switch",
