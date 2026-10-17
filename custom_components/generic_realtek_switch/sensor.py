@@ -219,6 +219,14 @@ PORT_SENSORS: tuple[PortSensorDesc, ...] = (
         value_fn=lambda p: p.rx_errors,
     ),
     PortSensorDesc(
+        key="learned_macs",
+        translation_key="learned_macs",
+        entity_registry_enabled_default=False,
+        icon="mdi:devices",
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=lambda p: p.learned_macs,
+    ),
+    PortSensorDesc(
         key="flow_control",
         translation_key="flow_control",
         entity_registry_enabled_default=False,
@@ -230,7 +238,7 @@ PORT_SENSORS: tuple[PortSensorDesc, ...] = (
 )
 
 # Port sensors that exist only where the firmware reports the value (None = not reported)
-_OPTIONAL_PORT_SENSORS = {"tx_bytes", "rx_bytes", "tx_errors", "rx_errors", "duplex", "flow_control"}
+_OPTIONAL_PORT_SENSORS = {"tx_bytes", "rx_bytes", "tx_errors", "rx_errors", "duplex", "flow_control", "learned_macs"}
 
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -368,4 +376,6 @@ class PortLevelSensor(CoordinatorEntity[SwitchCoordinator], SensorEntity):
             attrs["port_name"] = p.name
         if p.sfp_module:
             attrs["sfp_module"] = p.sfp_module
+        if p.learned_macs is not None:
+            attrs["learned_macs"] = p.learned_macs
         return attrs

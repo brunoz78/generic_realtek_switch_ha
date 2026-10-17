@@ -325,6 +325,18 @@ def test_no_uptime_on_older_firmware():
     assert d.uptime_seconds is None and d.boot_time is None
 
 
+def test_learned_macs():
+    status = [dict(p) for p in STATUS]
+    status[0]["macs"] = "0x21"
+    status[1]["macs"] = "0x0"
+    d = RtlPlaygroundClient(None, "192.0.2.21", "1234").parse(INFO, status)
+    assert [p.learned_macs for p in d.ports[:3]] == [33, 0, None]
+
+
+def test_no_learned_macs_on_older_firmware():
+    assert all(p.learned_macs is None for p in parse().ports)
+
+
 def test_install_firmware_waits_for_the_switch(monkeypatch):
     no_delay(monkeypatch)
     monkeypatch.setattr(rtlplayground, "_UPDATE_SETTLE", 0)

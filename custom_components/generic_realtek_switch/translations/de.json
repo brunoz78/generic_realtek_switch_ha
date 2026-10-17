@@ -138,6 +138,9 @@
       },
       "last_boot": {
         "name": "Letzter Neustart"
+      },
+      "learned_macs": {
+        "name": "Port {port} Gelernte Geräte"
       }
     },
     "update": {

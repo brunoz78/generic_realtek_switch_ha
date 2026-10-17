@@ -116,6 +116,7 @@ Pro Switch gibt es **ein Gerät** mit dem Namen `Switch <IP-Adresse>`, z. B. `Sw
 | Port N Sendefehler | Sensor | deaktiviert | Fehlerhaft gesendete Pakete (fortlaufend) — steigende Werte deuten auf Kabel- oder Steckerprobleme hin |
 | Port N Empfangsfehler | Sensor | deaktiviert | Fehlerhaft empfangene Pakete (fortlaufend) |
 | Port N Gesendet / Empfangen | Sensor | deaktiviert | Bytes (fortlaufend) — **nur** wenn der Switch Byte-Zähler liefert (KP-9000-9XHML-X und ZX-SWTGW215AS tun das nicht) |
+| Port N Gelernte Geräte | Sensor | deaktiviert | Anzahl MAC-Adressen, die der Switch an diesem Port gelernt hat, also etwa die Zahl der Geräte dahinter — **nur** mit RTLPlayground ab Oktober 2026 |
 
 **Getrennt** heisst: Der Port ist eingeschaltet, aber es ist kein Gerät verbunden (kein Kabel oder Gegenstelle aus). **Deaktiviert** heisst: Der Port wurde in der Weboberfläche des Switches bewusst abgeschaltet.
 
@@ -123,7 +124,7 @@ Deaktivierte Entitäten lassen sich bei Bedarf unter **Einstellungen → Geräte
 
 Schlägt das Lesen der Statistikseite einmal fehl, zeigen die Paket- und Fehlerzähler kurz „Unbekannt“ statt `0`. So hält Home Assistant einen Aussetzer nicht fälschlich für einen Zählerreset, der die Langzeitstatistik verfälschen würde.
 
-Die Entitäts-IDs sind unabhängig von der Sprache immer englisch und folgen dem Muster `sensor.switch_192_168_1_100_port_3`, `sensor.switch_192_168_1_100_port_3_duplex`, `…_flow_control`, `…_tx_packets`, `…_rx_errors` usw. In Automationen lauten die Zustände des Port-Sensors `disconnected`, `disabled`, `10m`, `100m`, `1000m`, `2500m`, `5000m` und `10g`.
+Die Entitäts-IDs sind unabhängig von der Sprache immer englisch und folgen dem Muster `sensor.switch_192_168_1_100_port_3`, `sensor.switch_192_168_1_100_port_3_duplex`, `…_flow_control`, `…_tx_packets`, `…_rx_errors`, `…_learned_macs` usw. In Automationen lauten die Zustände des Port-Sensors `disconnected`, `disabled`, `10m`, `100m`, `1000m`, `2500m`, `5000m` und `10g`.
 
 ---
 

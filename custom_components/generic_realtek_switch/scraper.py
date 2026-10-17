@@ -68,6 +68,7 @@ class PortData:
     rx_errors: int | None = None  # RxBadPkt
     name: str = ""                # port name set on the switch (RTLPlayground)
     sfp_module: str = ""          # vendor and model of a plugged-in SFP module
+    learned_macs: int | None = None  # MAC addresses learned on the port (RTLPlayground)
 
 
 @dataclass

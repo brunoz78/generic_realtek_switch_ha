@@ -275,6 +275,7 @@ class RtlPlaygroundClient:
                 rx_packets=_hex(p.get("rxG")),
                 tx_errors=_hex(p.get("txB")),
                 rx_errors=_hex(p.get("rxB")),
+                learned_macs=_hex(p.get("macs")),
                 name=p.get("name") or "",
                 sfp_module=" ".join(
                     s for s in (p.get("sfp_vendor", "").strip(), p.get("sfp_model", "").strip()) if s
