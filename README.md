@@ -131,6 +131,8 @@ Die Entitäts-IDs sind unabhängig von der Sprache immer englisch und folgen dem
 
 ## Dashboard-Karte „Port-Leiste“
 
+![Port-Leiste im hellen und dunklen Design](docs/port-card.png)
+
 Die Integration bringt eine eigene Karte mit, die alle Ports eines Switches als Leiste zeigt: Farbe nach Geschwindigkeit (gelb 10/100M, grün 1G, türkis 2.5G/5G, blau 10G), `getrennt` grau, abgeschaltete Ports gestrichelt. Ein Klick auf einen Port öffnet seine Details; beim Darüberfahren erscheinen Portname, SFP-Modul und gelernte Geräte.
 
 Die Karte wird automatisch geladen, unter *Ressourcen* ist nichts einzutragen. Im Dashboard **Karte hinzufügen → Generic Realtek Switch** wählen und den Switch auswählen. Oder in YAML:
