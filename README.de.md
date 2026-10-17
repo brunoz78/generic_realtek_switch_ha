@@ -143,7 +143,12 @@ Die Karte wird automatisch geladen, unter *Ressourcen* ist nichts einzutragen. I
 type: custom:generic-realtek-switch-card
 device: <Geräte-ID>   # im Karten-Editor auswählen
 title: Keller         # optional, sonst der Gerätename
+expected:             # optional: Ports, die mindestens so schnell laufen sollen
+  2: 2.5G
+  8: 2.5G
 ```
+
+**Soll-Geschwindigkeit:** Für Ports unter `expected` (im Karten-Editor: „Soll-Geschwindigkeit pro Port“, z. B. `2:2.5G, 8:2.5G`) warnt die Karte, sobald der Port langsamer läuft oder getrennt ist: roter Rahmen mit `!`-Abzeichen, „⚠ 1 unter Soll“ in der Kopfzeile und „Soll 2.5G, ist 1G“ im Tooltip. Bewusst abgeschaltete Ports warnen nicht.
 
 Nach einem Update der Integration lädt der Browser die neue Karte von selbst; falls nicht, die Seite einmal mit Strg+F5 neu laden.
 

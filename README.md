@@ -143,7 +143,12 @@ The card is loaded automatically, nothing needs to be added under *Resources*. O
 type: custom:generic-realtek-switch-card
 device: <device id>   # picked in the card editor
 title: Basement       # optional, default: the device name
+expected:             # optional: ports that should run at least this fast
+  2: 2.5G
+  8: 2.5G
 ```
+
+**Expected speed:** for ports listed under `expected` (in the card editor: "Expected speed per port", e.g. `2:2.5G, 8:2.5G`) the card warns as soon as the port runs slower or is disconnected: red frame with a `!` badge, "⚠ 1 below target" in the header and "expected 2.5G, is 1G" in the tooltip. Disabled ports don't warn.
 
 After an update of the integration the browser loads the new card by itself; if not, reload the page once with Ctrl+F5.
 

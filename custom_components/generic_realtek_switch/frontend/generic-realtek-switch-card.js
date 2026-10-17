@@ -9,6 +9,9 @@
  *   type: custom:generic-realtek-switch-card
  *   device: <device id>     # chosen in the card editor
  *   title: Keller           # optional, default: the device name
+ *   expected:               # optional: ports that should run at least this fast
+ *     2: 2.5G
+ *     8: 2.5G
  */
 const DOMAIN = "generic_realtek_switch";
 const CARD = "generic-realtek-switch-card";
@@ -26,10 +29,50 @@ const SPEED = {
   "5000m": ["5G", "g25"],
   "10g": ["10G", "g10"],
 };
+// Speed in Mbit/s per port state, to compare with the expected speed
+const MBIT = { "10m": 10, "100m": 100, "1000m": 1000, "2500m": 2500, "5000m": 5000, "10g": 10000 };
 const TEXT = {
-  de: { down: "getrennt", off: "aus", na: "–", up: "verbunden", none: "Kein Switch gewählt", device: "Switch", title: "Titel (optional)", learned: "Gelernte Geräte" },
-  en: { down: "down", off: "off", na: "–", up: "connected", none: "No switch selected", device: "Switch", title: "Title (optional)", learned: "Devices learned" },
+  de: {
+    down: "getrennt", off: "aus", na: "–", up: "verbunden", none: "Kein Switch gewählt", device: "Switch",
+    title: "Titel (optional)", learned: "Gelernte Geräte", below: (n) => `${n} unter Soll`,
+    want: (w, is) => `Soll ${w}, ist ${is}`,
+    expected: "Soll-Geschwindigkeit pro Port (optional, z. B. 2:2.5G, 8:2.5G)",
+  },
+  en: {
+    down: "down", off: "off", na: "–", up: "connected", none: "No switch selected", device: "Switch",
+    title: "Title (optional)", learned: "Devices learned", below: (n) => `${n} below target`,
+    want: (w, is) => `expected ${w}, is ${is}`,
+    expected: "Expected speed per port (optional, e.g. 2:2.5G, 8:2.5G)",
+  },
 };
+
+// "2.5G", "2500m", "1g", 2500 → Mbit/s; NaN if not a speed
+function toMbit(v) {
+  const m = String(v ?? "").trim().toLowerCase().match(/^(\d+(?:\.\d+)?)\s*([mg])?(?:bit)?$/);
+  if (!m) return NaN;
+  return Math.round(Number(m[1]) * (m[2] === "g" ? 1000 : 1));
+}
+
+function speedLabel(mbit) {
+  return mbit >= 1000 ? `${mbit / 1000}G` : `${mbit}M`;
+}
+
+// {2: "2.5G"} or "2:2.5G, 8:2.5G" → {2: 2500, 8: 2500}
+function parseExpected(x) {
+  const out = {};
+  const pairs = typeof x === "string"
+    ? x.split(/[,;\s]+/).filter(Boolean).map((p) => p.split(/[:=]/))
+    : Object.entries(x || {});
+  for (const [port, speed] of pairs) {
+    const n = parseInt(port, 10), mbit = toMbit(speed);
+    if (n > 0 && mbit > 0) out[n] = mbit;
+  }
+  return out;
+}
+
+function expectedText(x) {
+  return Object.entries(parseExpected(x)).map(([p, m]) => `${p}:${speedLabel(m)}`).join(", ");
+}
 
 function text(hass) {
   const lang = ((hass && (hass.locale?.language || hass.language)) || "en").slice(0, 2);
@@ -97,15 +140,16 @@ class GenericRealtekSwitchCard extends HTMLElement {
     const dev = hass.devices?.[this._config.device];
     const title = this._config.title || dev?.name_by_user || dev?.name || "";
     const dark = !!hass.themes?.darkMode;
+    const expected = parseExpected(this._config.expected);
 
     // Only redraw when something visible changed
-    const sig = JSON.stringify([title, dark, t.up, ports.map((p) => [p.id, p.st?.state, p.st?.attributes?.port_name, p.st?.attributes?.learned_macs])]);
+    const sig = JSON.stringify([title, dark, t.up, expected, ports.map((p) => [p.id, p.st?.state, p.st?.attributes?.port_name, p.st?.attributes?.learned_macs])]);
     if (sig === this._sig) return;
     this._sig = sig;
 
     if (!this.shadowRoot) this.attachShadow({ mode: "open" });
     const col = COLORS[dark ? "dark" : "light"];
-    let up = 0;
+    let up = 0, below = 0;
     const tiles = ports.map((p) => {
       const state = p.st?.state;
       let cls = "port", label, color = "";
@@ -123,12 +167,20 @@ class GenericRealtekSwitchCard extends HTMLElement {
         label = t.na;
         cls += " dis";
       }
+      // Slower than expected, or not connected at all
+      const want = expected[p.num];
+      let warn = "";
+      if (want && state !== "disabled" && !((MBIT[state] || 0) >= want)) {
+        below++;
+        cls += " warn";
+        warn = t.want(speedLabel(want), label);
+      }
       const a = p.st?.attributes || {};
-      const tip = [`Port ${p.num}`, a.port_name, a.sfp_module, a.learned_macs != null ? `${t.learned}: ${a.learned_macs}` : ""]
+      const tip = [`Port ${p.num}`, a.port_name, a.sfp_module, a.learned_macs != null ? `${t.learned}: ${a.learned_macs}` : "", warn]
         .filter(Boolean)
         .join(" · ");
       return `<div class="${cls}" style="${color ? `--pc:${color}` : ""}" data-id="${esc(p.id)}" title="${esc(tip)}" role="button" tabindex="0">
-        <span class="pn">${p.num}</span><span class="jack"></span><span class="ps">${esc(label)}</span></div>`;
+        ${warn ? `<span class="wb">!</span>` : ""}<span class="pn">${p.num}</span><span class="jack"></span><span class="ps">${esc(label)}</span></div>`;
     });
 
     this.shadowRoot.innerHTML = `
@@ -137,11 +189,11 @@ class GenericRealtekSwitchCard extends HTMLElement {
         .head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 10px; }
         .title { font-size: 16px; font-weight: 500; color: var(--primary-text-color); }
         .count { font-size: 12px; color: var(--secondary-text-color); }
-        .strip { display: flex; flex-wrap: wrap; gap: 6px; }
+        .strip { display: flex; flex-wrap: wrap; gap: 6px; padding-top: 4px; }
         .port {
           width: 44px; border: 2px solid var(--divider-color); border-radius: 7px; padding: 3px 0 2px;
           text-align: center; cursor: pointer; background: var(--secondary-background-color);
-          color: var(--primary-text-color); box-sizing: border-box; outline: none;
+          color: var(--primary-text-color); box-sizing: border-box; outline: none; position: relative;
         }
         .port:focus-visible { box-shadow: 0 0 0 2px var(--primary-color); }
         .pn { font-weight: 650; font-size: 12px; display: block; }
@@ -154,10 +206,17 @@ class GenericRealtekSwitchCard extends HTMLElement {
         .port.up .jack { border-color: var(--pc); opacity: 1; }
         .port.up .ps { color: var(--pc); font-weight: 600; }
         .port.dis { opacity: .45; border-style: dashed; }
+        .port.warn { border-color: var(--error-color, #db4437); opacity: 1; border-style: solid; }
+        .port.warn .ps { color: var(--error-color, #db4437); font-weight: 600; }
+        .wb {
+          position: absolute; top: -7px; right: -7px; width: 15px; height: 15px; border-radius: 50%;
+          background: var(--error-color, #db4437); color: #fff; font-size: 11px; font-weight: 700; line-height: 15px;
+        }
+        .bad { font-size: 12px; color: var(--error-color, #db4437); font-weight: 600; }
         .none { color: var(--secondary-text-color); font-size: 14px; }
       </style>
       <ha-card>
-        ${title || ports.length ? `<div class="head"><span class="title">${esc(title)}</span>${ports.length ? `<span class="count">${up} / ${ports.length} ${esc(t.up)}</span>` : ""}</div>` : ""}
+        ${title || ports.length ? `<div class="head"><span class="title">${esc(title)}</span>${ports.length ? `<span class="count">${up} / ${ports.length} ${esc(t.up)}</span>` : ""}${below ? `<span class="bad">⚠ ${esc(t.below(below))}</span>` : ""}</div>` : ""}
         ${ports.length ? `<div class="strip">${tiles.join("")}</div>` : `<div class="none">${esc(t.none)}</div>`}
       </ha-card>`;
 
@@ -191,8 +250,16 @@ class GenericRealtekSwitchCardEditor extends HTMLElement {
     if (!this._form) {
       this._form = document.createElement("ha-form");
       this._form.addEventListener("value-changed", (ev) => {
-        const config = { ...this._config, ...ev.detail.value };
+        const { expected_text, ...value } = ev.detail.value;
+        if (expected_text !== undefined) this._typed = expected_text;
+        const config = { ...this._config, ...value };
         if (!config.title) delete config.title;
+        if (expected_text !== undefined) {
+          const exp = parseExpected(expected_text);
+          const keys = Object.keys(exp);
+          if (keys.length) config.expected = Object.fromEntries(keys.map((k) => [k, speedLabel(exp[k])]));
+          else delete config.expected;
+        }
         this._config = config;
         this.dispatchEvent(new CustomEvent("config-changed", { bubbles: true, composed: true, detail: { config } }));
       });
@@ -203,9 +270,14 @@ class GenericRealtekSwitchCardEditor extends HTMLElement {
     this._form.schema = [
       { name: "device", required: true, selector: { device: { integration: DOMAIN } } },
       { name: "title", selector: { text: {} } },
+      { name: "expected_text", selector: { text: {} } },
     ];
-    this._form.computeLabel = (s) => (s.name === "device" ? t.device : t.title);
-    this._form.data = this._config;
+    this._form.computeLabel = (s) => ({ device: t.device, title: t.title, expected_text: t.expected })[s.name];
+    // Keep what is being typed; the stored config only holds the parsed ports
+    if (this._typed === undefined || expectedText(this._typed) !== expectedText(this._config.expected)) {
+      this._typed = expectedText(this._config.expected);
+    }
+    this._form.data = { ...this._config, expected_text: this._typed };
   }
 }
 
