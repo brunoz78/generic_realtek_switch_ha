@@ -152,7 +152,7 @@ expected:             # optional: Ports, die mindestens so schnell laufen sollen
 
 **Aktionen in der Kopfzeile:** ↻ startet den Switch neu (nach Rückfrage), **Update** erscheint, wenn die Firmware-Entität eine neue Version anbietet, und öffnet sie, ↗ öffnet die Weboberfläche des Switches. Jede Aktion lässt sich im Karten-Editor ausschalten (`show_reboot`, `show_update`, `show_web`: `false`).
 
-Nach einem Update der Integration lädt der Browser die neue Karte von selbst; falls nicht, die Seite einmal mit Strg+F5 neu laden.
+Nach einem Update der Integration lädt der Browser die neue Karte von selbst; falls nicht, die Seite einmal mit Strg+F5 neu laden. Die Home-Assistant-App hat einen eigenen Zwischenspeicher: dort *Einstellungen → Companion App → Fehlerbehebung → Frontend-Cache zurücksetzen* wählen und die App neu starten.
 
 ---
 
