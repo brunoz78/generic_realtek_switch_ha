@@ -49,7 +49,10 @@ def parse_release(data: dict) -> FirmwareRelease | None:
         if not m:
             continue  # checksums, OEM installers and the like
         versions.add(m.group(1))
-        assets.append(FirmwareAsset(a["name"], m.group(2), a["browser_download_url"]))
+        # Through the API rather than the download link: github.com answers that
+        # with a Content-Security-Policy header longer than aiohttp reads (8190 bytes)
+        url = a.get("url") or a["browser_download_url"]
+        assets.append(FirmwareAsset(a["name"], m.group(2), url))
     if len(versions) != 1:
         return None
     return FirmwareRelease(
@@ -108,7 +111,8 @@ class ReleaseCache:
     async def _download(self, asset: FirmwareAsset) -> bytes | None:
         try:
             async with self._session.get(
-                asset.url, headers={"User-Agent": _HEADERS["User-Agent"]},
+                asset.url,
+                headers={"Accept": "application/octet-stream", "User-Agent": _HEADERS["User-Agent"]},
                 timeout=aiohttp.ClientTimeout(total=120),
             ) as resp:
                 resp.raise_for_status()

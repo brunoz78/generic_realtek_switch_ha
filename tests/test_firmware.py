@@ -65,6 +65,15 @@ def test_parse_release_without_suffix_and_installers():
     assert r.version == "v0.1.0-0e9c997" and len(r.assets) == 1
 
 
+def test_parse_release_downloads_through_the_api():
+    data = {"tag_name": "t", "assets": [{
+        "name": "rtlplayground-v0.1.0-0e9c997-SWTGW218AS.bin",
+        "url": "https://api.github.com/repos/o/r/releases/assets/1",
+        "browser_download_url": "https://github.com/o/r/releases/download/t/x.bin",
+    }]}
+    assert parse_release(data).assets[0].url == "https://api.github.com/repos/o/r/releases/assets/1"
+
+
 def test_parse_release_without_images():
     assert parse_release({"tag_name": "erstinstallation", "assets": []}) is None
 
