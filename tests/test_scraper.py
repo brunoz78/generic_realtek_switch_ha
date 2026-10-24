@@ -1,4 +1,5 @@
 """Parser tests against real switch pages (see tests/fixtures/*)."""
+import asyncio
 import pathlib
 
 import pytest
@@ -112,7 +113,49 @@ def test_parse_speed_duplex(raw, expected):
     ("1-0", 4_294_967_296),
     ("3357168", 3357168),
     ("0x10", 16),
-    ("garbage", 0),
+    ("garbage", None),   # not 0: that would look like a counter reset
+    ("n/a", None),
+    ("", None),
+    ("0xzz", None),
+    ("a-b", None),
 ])
 def test_parse_counter(raw, expected):
     assert CgiScraper._parse_counter(raw) == expected
+
+
+def test_unreadable_counter_stays_unknown():
+    scraper = CgiScraper(None, "192.0.2.10", "admin", "admin")
+    ports = ("<h3>Port List</h3><table><tr><th>Port</th><th>State</th></tr>"
+             "<tr><td>1</td><td>Enable</td></tr></table>")
+    info = ("<table><tr><td>Device Model</td><td>X</td></tr></table><table><tr><th>Port</th></tr>"
+            "<tr><td>Port 1</td><td>Link Up</td><td>Full</td><td>1000M</td><td>Off</td></tr></table>")
+    stats = ("<table><tr><td>Port</td><td>State</td><td>Link</td><td>TxGoodPkt</td><td>RxGoodPkt</td></tr>"
+             "<tr><td>Port 1</td><td>E</td><td>U</td><td>n/a</td><td>12</td></tr></table>")
+    p = scraper.parse(info, ports, stats).ports[0]
+    assert p.tx_packets is None and p.rx_packets == 12
+
+
+def run_scrape(pages):
+    """scrape() with canned pages instead of a switch."""
+    scraper = CgiScraper(None, "192.0.2.10", "admin", "admin")
+
+    async def login():
+        pass
+
+    async def fetch(path, _relogin=True):
+        return pages.get(path)
+
+    scraper._login, scraper._fetch = login, fetch
+    return asyncio.run(scraper.scrape())
+
+
+def test_scrape_without_any_page_is_unavailable():
+    # Login worked, but the pages are missing (or are a login page): no snapshot
+    assert not run_scrape({}).available
+    assert not run_scrape({"/info.cgi": "<html>login</html>", "/port.cgi": "<html>login</html>"}).available
+
+
+def test_scrape_with_pages_is_available():
+    info = "<table><tr><td>Device Model</td><td>X</td></tr></table>"
+    d = run_scrape({"/info.cgi": info})
+    assert d.available and d.model == "X"

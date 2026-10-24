@@ -317,6 +317,12 @@ class PortLevelSensor(CoordinatorEntity[SwitchCoordinator], SensorEntity):
 
     entity_description: PortSensorDesc
 
+    # The counters change with every poll: shown live, but not written to the
+    # database each time (the optional counter sensors keep their statistics)
+    _unrecorded_attributes = frozenset(
+        {"tx_packets", "rx_packets", "tx_errors", "rx_errors", "tx_bytes", "rx_bytes"}
+    )
+
     def __init__(
         self,
         coordinator: SwitchCoordinator,

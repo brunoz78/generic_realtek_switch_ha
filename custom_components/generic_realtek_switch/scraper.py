@@ -214,24 +214,28 @@ class CgiScraper:
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _parse_counter(val: str) -> int:
-        """Parse hex (0x…), split-64 (hi-lo), or decimal counter values."""
+    def _parse_counter(val: str) -> int | None:
+        """Parse hex (0x…), split-64 (hi-lo), or decimal counter values.
+
+        None for anything else: a 0 would look like a counter reset to Home
+        Assistant and inflate the long-term statistics on the next poll.
+        """
         val = val.strip()
         if val.lower().startswith("0x"):
             try:
                 return int(val, 16)
             except ValueError:
-                return 0
+                return None
         parts = val.split("-")
         if len(parts) == 2:
             try:
                 return int(parts[0]) * 4_294_967_296 + int(parts[1])
             except ValueError:
-                return 0
+                return None
         try:
             return int(val)
         except ValueError:
-            return 0
+            return None
 
     @staticmethod
     def _fmt_uptime(raw: str) -> str:
@@ -287,7 +291,14 @@ class CgiScraper:
         stats_html     = await self._fetch(CGI_PORT_STATS)
         port_cfg_html  = await self._fetch(CGI_PORT_CFG)
 
-        return self.parse(info_html, port_cfg_html, stats_html)
+        data = self.parse(info_html, port_cfg_html, stats_html)
+        if not data.ports and data.model == "Unknown":
+            # Pages missing or not the ones of a switch (e.g. a login page after a
+            # wrong password): not a snapshot. Reporting it as available would
+            # leave the entry without ports until it is reloaded.
+            _LOGGER.error("[%s] No switch data in the replies", self.ip)
+            return SwitchData(ip=self.ip, model="Unknown", mac="", uptime="", firmware="", available=False)
+        return data
 
     def parse(
         self,

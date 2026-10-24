@@ -234,6 +234,27 @@ def test_expired_session_relogs_in(monkeypatch):
     assert fake.logins == 4
 
 
+def test_failed_poll_keeps_the_session(monkeypatch):
+    no_delay(monkeypatch)
+    fake = FakeSwitch(slots=4)
+
+    async def go(session, client, port):
+        await client.scrape()
+        real = client._get_json
+
+        async def down(path):
+            raise asyncio.TimeoutError
+
+        client._get_json = down
+        failed = await client.scrape()
+        client._get_json = real
+        return failed, await client.scrape()
+
+    failed, again = run(fake, go)
+    assert not failed.available and again.available
+    assert fake.logins == 2              # no new login, the session slots are not used up
+
+
 def test_reboot(monkeypatch):
     no_delay(monkeypatch)
     fake = FakeSwitch()
@@ -269,7 +290,8 @@ def test_several_sessions_restart_relogs_in_at_once(monkeypatch):
         return await client.scrape()
 
     assert run(fake, go).available
-    assert fake.logins == 4
+    # two logins at the start (the probe), then one: known to have several sessions
+    assert fake.logins == 3
 
 
 def test_upload_firmware(monkeypatch):

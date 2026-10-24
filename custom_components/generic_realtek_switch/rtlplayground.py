@@ -165,6 +165,14 @@ class RtlPlaygroundClient:
             _LOGGER.debug("[%s] Firmware keeps %s", self.ip, "several sessions" if multi else "one session")
         self._multi_session = multi
 
+    async def _connect(self) -> None:
+        """Log in. Probe for several sessions only while the firmware is not known to
+        have them: each probe leaves one more session behind on the switch."""
+        if self._multi_session:
+            await self._login()
+        else:
+            await self._login_and_probe()
+
     async def _get_json(self, path: str) -> Any:
         """GET a JSON endpoint; raises SessionLost on 401."""
         for attempt in range(1, _MAX_ATTEMPTS + 1):
@@ -206,7 +214,7 @@ class RtlPlaygroundClient:
             return unavailable
         try:
             if not self._session_id:
-                await self._login_and_probe()
+                await self._connect()
             try:
                 info = await self._get_json(RTL_INFO)
                 status = await self._get_json(RTL_STATUS)
@@ -224,15 +232,17 @@ class RtlPlaygroundClient:
                     self._session_id = None
                     self._paused_until = time.monotonic() + _TAKEOVER_PAUSE
                     return unavailable
-                await self._login_and_probe()
+                await self._connect()
                 info = await self._get_json(RTL_INFO)
                 status = await self._get_json(RTL_STATUS)
         except AuthFailed:
             self._session_id = None
             raise
         except Exception as exc:
+            # The session stays: a poll that fails (timeout, garbled reply) says
+            # nothing against it, and a new login would take another of the few
+            # session slots of the switch. A lost session shows up as a 401.
             _LOGGER.error("[%s] RTLPlayground poll failed: %s", self.ip, exc)
-            self._session_id = None
             return unavailable
 
         timeout = info.get("session_timeout") if isinstance(info, dict) else None
@@ -343,11 +353,11 @@ class RtlPlaygroundClient:
         drops after the image went out is taken as the reset, not an error.
         """
         if not self._session_id:
-            await self._login_and_probe()
+            await self._connect()
         try:
             await self._get_json(RTL_INFO)  # make sure the session is still ours
         except SessionLost:
-            await self._login_and_probe()
+            await self._connect()
         form = aiohttp.FormData()
         form.add_field(
             "uploadedfile", image, filename="rtlplayground.bin",
