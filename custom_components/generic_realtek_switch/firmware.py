@@ -133,12 +133,15 @@ class ReleaseCache:
             key=lambda a: (a.name != known, a.board.replace("_", "") not in key),
         )
         complete = True
+        loop = asyncio.get_running_loop()
         for asset in ordered:
             image = await self._download(asset)
             if image is None:
                 complete = False
                 continue
-            if image_valid(image) and image_for_board(image, board_name):
+            # The CRC runs over 512 KiB in pure Python: not on the event loop
+            valid = await loop.run_in_executor(None, image_valid, image)
+            if valid and image_for_board(image, board_name):
                 _LOGGER.debug("%s fits %s", asset.name, board_name)
                 self._fits[(release.tag, board_name)] = asset.name
                 return image

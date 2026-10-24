@@ -5,6 +5,7 @@ import aiohttp
 from aiohttp import web
 from aiohttp.test_utils import TestServer
 
+from generic_realtek_switch import firmware
 from generic_realtek_switch.firmware import (
     IMAGE_SIZE,
     ReleaseCache,
@@ -135,6 +136,27 @@ def run_cache(check, all_boards=False):
         finally:
             await server.close()
     return asyncio.run(main())
+
+
+def test_image_checksum_runs_off_the_event_loop(monkeypatch):
+    """The CRC over 512 KiB takes seconds in pure Python: it must not block Home Assistant."""
+    real = firmware.image_valid
+    on_loop = []
+
+    def spy(image):
+        try:
+            asyncio.get_running_loop()
+            on_loop.append(True)         # a loop runs in this thread: it would block it
+        except RuntimeError:
+            on_loop.append(False)
+        return real(image)
+
+    monkeypatch.setattr(firmware, "image_valid", spy)
+
+    async def check(cache, release, downloads):
+        assert await cache.has_image_for(release, "SWTGW218AS 8+1 Managed Switch")
+    run_cache(check)
+    assert on_loop and not any(on_loop)
 
 
 def test_has_image_for_known_board():
