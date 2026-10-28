@@ -70,6 +70,12 @@ def test_sfp_module():
     assert (sfp.status, sfp.speed, sfp.sfp_module) == ("up", "10G", "FS SFP-10GSR-85")
 
 
+def test_sfp_cage_is_marked():
+    ports = RtlPlaygroundClient(None, "192.0.2.21", "1234").parse(INFO, STATUS).ports
+    assert [p.sfp for p in ports] == [bool(s.get("isSFP")) for s in STATUS]
+    assert ports[8].sfp and not ports[0].sfp
+
+
 def test_negative_and_missing_temperature():
     assert rtlplayground._temperature("-3.5 C") == -3.5
     assert rtlplayground._temperature(None) is None

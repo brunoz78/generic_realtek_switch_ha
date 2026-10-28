@@ -169,7 +169,8 @@ class GenericRealtekSwitchCard extends HTMLElement {
 
     // Only redraw when something visible changed
     const sig = JSON.stringify([title, dark, t.up, expected, rebootId, upd?.state, upd?.attributes?.in_progress,
-      upd?.attributes?.latest_version, web, ports.map((p) => [p.id, p.st?.state, p.st?.attributes?.port_name, p.st?.attributes?.learned_macs])]);
+      upd?.attributes?.latest_version, web,
+      ports.map((p) => [p.id, p.st?.state, p.st?.attributes?.port_name, p.st?.attributes?.learned_macs, p.st?.attributes?.sfp])]);
     if (sig === this._sig) return;
     this._sig = sig;
 
@@ -178,7 +179,7 @@ class GenericRealtekSwitchCard extends HTMLElement {
     let up = 0, below = 0;
     const tiles = ports.map((p) => {
       const state = p.st?.state;
-      let cls = "port", label, color = "";
+      let cls = p.st?.attributes?.sfp ? "port sfp" : "port", label, color = "";
       if (SPEED[state]) {
         up++;
         label = SPEED[state][0];
@@ -233,12 +234,24 @@ class GenericRealtekSwitchCard extends HTMLElement {
         .port:focus-visible { box-shadow: 0 0 0 2px var(--primary-color); }
         .pn { font-weight: 650; font-size: 12px; display: block; }
         .ps { font-size: 9px; color: var(--secondary-text-color); display: block; line-height: 1.2; }
+        .port.sfp { width: 50px; }
+        /* Port symbols as on the switch: RJ45 jack with latch, SFP cage */
         .jack {
-          display: block; width: 16px; height: 10px; margin: 2px auto 1px; border-radius: 2px;
-          border: 2px solid var(--secondary-text-color); border-top-width: 4px; opacity: .55; box-sizing: content-box;
+          display: block; width: 21px; height: 12px; margin: 4px auto 2px; border-radius: 2px; position: relative;
+          border: 2px solid var(--secondary-text-color); border-top-width: 8px; opacity: .55; box-sizing: content-box;
+        }
+        .jack:before {
+          content: ""; position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%);
+          width: 6px; height: 5px; margin-bottom: 7px; border-radius: 1px 1px 0 0; background-color: var(--secondary-text-color);
+        }
+        .sfp .jack { width: 24px; height: 16px; margin: 0 auto 2px; border-top-width: 5px; }
+        .sfp .jack:before {
+          width: 10px; margin-bottom: 2px; border-radius: 0 0 1px 1px; background-color: var(--secondary-background-color);
         }
         .port.up { border-color: var(--pc); background: color-mix(in srgb, var(--pc) 12%, var(--secondary-background-color)); }
         .port.up .jack { border-color: var(--pc); opacity: 1; }
+        .port.up .jack:before { background-color: var(--pc); }
+        .port.up.sfp .jack:before { background-color: color-mix(in srgb, var(--pc) 12%, var(--secondary-background-color)); }
         .port.up .ps { color: var(--pc); font-weight: 600; }
         .port.dis { opacity: .45; border-style: dashed; }
         .port.warn { border-color: var(--error-color, #db4437); opacity: 1; border-style: solid; }

@@ -290,6 +290,7 @@ class RtlPlaygroundClient:
                 sfp_module=" ".join(
                     s for s in (p.get("sfp_vendor", "").strip(), p.get("sfp_model", "").strip()) if s
                 ) if is_sfp and enabled else "",
+                sfp=is_sfp,
             ))
 
         firmware = info.get("sw_ver", "")

@@ -381,6 +381,8 @@ class PortLevelSensor(CoordinatorEntity[SwitchCoordinator], SensorEntity):
         }
         if p.name:
             attrs["port_name"] = p.name
+        if p.sfp:
+            attrs["sfp"] = True
         if p.sfp_module:
             attrs["sfp_module"] = p.sfp_module
         if p.learned_macs is not None:
