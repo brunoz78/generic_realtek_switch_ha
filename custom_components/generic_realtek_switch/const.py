@@ -30,6 +30,7 @@ RTL_INFO   = "/information.json"
 RTL_STATUS = "/status.json"
 RTL_RESET  = "/reset"
 RTL_UPLOAD = "/upload"
+RTL_CMD    = "/cmd"
 
 # Firmware updates from the GitHub releases of a RTLPlayground fork
 CONF_FIRMWARE_REPO = "firmware_repo"

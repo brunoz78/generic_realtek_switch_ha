@@ -72,6 +72,11 @@
         "name": "Reboot"
       }
     },
+    "switch": {
+      "port_enabled": {
+        "name": "Port {port} enabled"
+      }
+    },
     "sensor": {
       "port": {
         "name": "Port {port}",

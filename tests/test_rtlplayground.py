@@ -97,6 +97,7 @@ class FakeSwitch:
         self.uploaded = None
         self.info = dict(INFO)
         self.refuse_upload = False
+        self.cmds = []
 
     @property
     def session(self):
@@ -120,7 +121,17 @@ class FakeSwitch:
         app.router.add_get("/status.json", self.json(STATUS))
         app.router.add_get("/reset", self.do_reset)
         app.router.add_post("/upload", self.upload)
+        app.router.add_post("/cmd", self.cmd)
         return app
+
+    async def cmd(self, request):
+        if request.cookies.get("session") not in self.sessions:
+            return web.Response(status=401)
+        body = await request.text()
+        if not body.startswith("port ") or body.split()[1] not in {"1", "2", "3", "4", "5", "6", "7", "8"}:
+            return web.Response(status=400, text="Port/command missing: port <port> [show|on|off]\n")
+        self.cmds.append(body)
+        return web.Response(text="OK\n")
 
     async def login_page(self, request):
         return web.Response(text="<p id=sub>RTLPlayground management interface</p>", content_type="text/html")
@@ -271,6 +282,47 @@ def test_reboot(monkeypatch):
 
     assert run(fake, go) is True
     assert fake.reset
+
+
+def test_port_off_and_on(monkeypatch):
+    no_delay(monkeypatch)
+    fake = FakeSwitch()
+
+    async def go(session, client, port):
+        await client.scrape()
+        await client.set_port_enabled("3", False)
+        await client.set_port_enabled("3", True)
+
+    run(fake, go)
+    assert fake.cmds == ["port 3 off", "port 3 on"]
+    assert fake.logins == 2              # the polling session was used
+
+
+def test_port_switch_logs_in_again_after_takeover(monkeypatch):
+    no_delay(monkeypatch)
+    fake = FakeSwitch()
+
+    async def go(session, client, port):
+        await client.scrape()
+        fake.browser_login()                 # web UI took the only session
+        assert not (await client.scrape()).available
+        await client.set_port_enabled("2", False)
+        return await client.scrape()         # polling resumes right away
+
+    assert run(fake, go).available
+    assert fake.cmds == ["port 2 off"]
+
+
+def test_port_switch_rejected(monkeypatch):
+    no_delay(monkeypatch)
+    fake = FakeSwitch()
+
+    async def go(session, client, port):
+        await client.scrape()
+        await client.set_port_enabled("12", False)
+
+    with pytest.raises(RuntimeError, match="Port/command missing"):
+        run(fake, go)
 
 
 def test_several_sessions_browser_does_not_pause(monkeypatch):

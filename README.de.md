@@ -53,6 +53,7 @@ Getestet mit RTLPlayground `v0.1.0-1856aeb`. Die Weboberfläche ist auf allen Ge
 - 🔌 **Port-Überwachung** — ein Sensor pro Port mit Verbindung und Geschwindigkeit (z. B. `Getrennt`, `1000M`, `2500M`), optional Duplex, Flusskontrolle, Paket- und Fehlerzähler
 - 🟩 **Port-Leiste fürs Dashboard** — eigene Karte zeigt alle Ports eines Switches wie in der Weboberfläche von RTLPlayground, Farbe nach Geschwindigkeit
 - 🔄 **Neustart-Taste** — Switch per Knopfdruck aus jedem Dashboard oder jeder Automation neu starten
+- 🔀 **Ports ein- und ausschalten** — bei RTLPlayground ein Schalter pro Port, z. B. für Automationen
 - ⬆️ **Firmware-Update** — bei RTLPlayground neue Firmware direkt aus Home Assistant aufspielen, das passende Image wird automatisch gewählt
 - ⚡ **Direkte Abfrage im LAN** — vollständig lokal, keine Cloud, kein Proxy
 - 🔧 **Einstellbares Abfrageintervall** — 10 bis 300 Sekunden (Standard 30 s)
@@ -120,6 +121,7 @@ Pro Switch gibt es **ein Gerät** mit dem Namen `Switch <IP-Adresse>`, z. B. `Sw
 | Port N Empfangsfehler | Sensor | deaktiviert | Fehlerhaft empfangene Pakete (fortlaufend) |
 | Port N Gesendet / Empfangen | Sensor | deaktiviert | Bytes (fortlaufend) — **nur** wenn der Switch Byte-Zähler liefert (KP-9000-9XHML-X und ZX-SWTGW215AS tun das nicht) |
 | Port N Gelernte Geräte | Sensor | deaktiviert | Anzahl MAC-Adressen, die der Switch an diesem Port gelernt hat, also etwa die Zahl der Geräte dahinter — **nur** mit RTLPlayground ab Oktober 2026 |
+| Port N aktiv | Schalter | deaktiviert | Schaltet den Port ein oder aus (bis zum nächsten Neustart des Switches) — **nur** mit RTLPlayground, nicht für SFP-Steckplätze |
 
 **Getrennt** heisst: Der Port ist eingeschaltet, aber es ist kein Gerät verbunden (kein Kabel oder Gegenstelle aus). **Deaktiviert** heisst: Der Port wurde in der Weboberfläche des Switches bewusst abgeschaltet.
 
@@ -225,15 +227,18 @@ Zwischen den einzelnen Anfragen liegt eine Pause von 0,4 s, damit der Mikrocontr
 | Letzter Neustart (Zeitpunkt, aus der Betriebszeit) | — | ✅ ab Firmware mit Betriebszeit (`uptime` in `/information.json`) |
 | Port-Name und SFP-Modul | — | als Attribute `port_name` und `sfp_module` am Sensor „Port N“ |
 | Gelernte Geräte pro Port | — | ✅ ab Oktober 2026 (`macs` in `/status.json`) |
+| Port ein-/ausschalten | — | ✅ Schalter „Port N aktiv“, standardmässig deaktiviert |
 | Firmware | z. B. `V1.9.1` | z. B. `RTLPlayground v0.1.0-f0aea3d` |
 
 Ein SFP-Steckplatz ohne Modul erscheint als `Getrennt`, nicht als `Deaktiviert`.
+
+**Ports ein- und ausschalten:** Für jeden RJ45-Port gibt es den Schalter **Port N aktiv** (`switch.switch_<ip>_port_<n>_enabled`). Er wirkt wie das Deaktivieren in der Weboberfläche und ändert nur die laufende Konfiguration: Nach einem Neustart des Switches ist der Port wieder so, wie er im Flash gespeichert ist; dauerhaft wird es erst mit „Im Flash speichern“ in der Weboberfläche. Die Schalter sind **standardmässig deaktiviert**: Wer den Port ausschaltet, über den Home Assistant oder der eigene Rechner den Switch erreicht, sperrt sich bis zum nächsten Neustart aus. Aktiviere deshalb nur die Schalter der Ports, die du wirklich steuern willst. SFP-Steckplätze haben keinen Schalter.
 
 **Anmeldungen:** Die bisherige Firmware kennt nur eine angemeldete Sitzung. Meldet man sich im Browser an, verliert Home Assistant seine Sitzung. Die Integration erkennt das und **pausiert die Abfrage dann für 5 Minuten** (die Entitäten sind so lange „Nicht verfügbar“), damit die Weboberfläche benutzbar bleibt; danach meldet sie sich wieder an — und meldet damit den Browser ab. Kennt die Firmware mehrere Sitzungen zugleich, merkt die Integration das bei der Anmeldung: Browser und Home Assistant stören sich dann nicht, und nach einem Neustart des Switches meldet sie sich sofort wieder an, ohne Pause.
 
 **Firmware-Update:** Für Switches mit RTLPlayground gibt es die Entität **Firmware** (`update.switch_<ip>_firmware`). Sie vergleicht die installierte Version mit dem neuesten Release eines GitHub-Repositorys (Standard `brunoz78/RTLPlayground`, änderbar unter **Konfigurieren**) und zeigt wie andere Geräte in Home Assistant „Update verfügbar“ an, samt Release-Notizen – aber nur, wenn das Release ein Image für genau dieses Modell enthält. Das Standard-Repository baut nur die oben getesteten Modelle; für andere Switches bleibt die Entität ruhig, bis du unter **Konfigurieren** ein Repository mit passenden Images einträgst. **Installieren** lädt das Image für genau dieses Gerät herunter – erkannt am Gerätenamen, den die Firmware meldet und der in jedem Image steht –, prüft Grösse und Prüfsumme, lädt es wie die Weboberfläche auf den Switch und wartet, bis er wieder läuft (etwa 1–2 Minuten). Passt kein Image des Releases zum Gerät, wird nichts aufgespielt. Werden mehrere Switches gleichzeitig aktualisiert, arbeitet die Integration sie nacheinander ab, damit kein Upload abbricht, weil ein vorgeschalteter Switch gerade neu startet. Ein abgebrochener Upload ist ohnehin harmlos: Die Firmware übernimmt ein Image erst, wenn es vollständig ist und die Prüfsumme stimmt. Das Repository fragt die Integration höchstens einmal pro Stunde ab; ob ein neues Release ein passendes Image hat, prüft sie einmal pro Release und Modell (Download der Images, je 512 KiB).
 
-**Abfrage:** `POST /login` mit dem Passwort → Sitzungs-Cookie; danach `GET /information.json` (Modell, MAC, Firmware, Temperatur) und `GET /status.json` (Link, Geschwindigkeit, Paket- und Fehlerzähler pro Port). Die Neustart-Taste ruft `GET /reset` auf, ein Firmware-Update `POST /upload`.
+**Abfrage:** `POST /login` mit dem Passwort → Sitzungs-Cookie; danach `GET /information.json` (Modell, MAC, Firmware, Temperatur) und `GET /status.json` (Link, Geschwindigkeit, Paket- und Fehlerzähler pro Port). Die Neustart-Taste ruft `GET /reset` auf, ein Firmware-Update `POST /upload`, ein Port-Schalter `POST /cmd` mit `port <n> on` bzw. `off`.
 
 ---
 

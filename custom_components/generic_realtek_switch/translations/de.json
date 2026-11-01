@@ -72,6 +72,11 @@
         "name": "Neustart"
       }
     },
+    "switch": {
+      "port_enabled": {
+        "name": "Port {port} aktiv"
+      }
+    },
     "sensor": {
       "port": {
         "name": "Port {port}",

@@ -7,6 +7,7 @@ Auth flow:
   2. GET /information.json  → hostname, MAC, firmware, model, chip temperature
   3. GET /status.json       → per port: enabled, link speed, packet/error counters
   4. GET /reset             → reboot (the switch closes the connection)
+  5. POST /cmd  port 3 off  → CLI command, "OK" or 400 with the parser's message
 
 Older firmware keeps a single session: logging in from Home Assistant logs
 out an open browser tab and vice versa. When the session is taken over while
@@ -32,6 +33,7 @@ from .const import (
     PORT_STATUS_DISABLED,
     PORT_STATUS_DOWN,
     PORT_STATUS_UP,
+    RTL_CMD,
     RTL_INFO,
     RTL_LOGIN,
     RTL_LOGIN_PAGE,
@@ -333,6 +335,38 @@ class RtlPlaygroundClient:
         self._session_id = None
         _LOGGER.warning("[%s] Reboot command sent", self.ip)
         return True
+
+    async def set_port_enabled(self, port: str, enabled: bool) -> None:
+        """Switch a port on or off like the web interface, in the running
+        configuration only: after a restart the port is as saved in flash.
+
+        Raises RuntimeError if the switch rejects the command.
+        """
+        cmd = f"port {port} {'on' if enabled else 'off'}"
+        async with self._lock:
+            if not self._session_id:
+                await self._connect()
+            for attempt in (1, 2):
+                await asyncio.sleep(_REQUEST_DELAY)
+                async with self._session.post(
+                    f"{self._base_url}{RTL_CMD}",
+                    data=cmd.encode(),
+                    headers={"Cookie": f"session={self._session_id}", "Content-Type": "text/plain"},
+                    timeout=aiohttp.ClientTimeout(total=20),
+                    allow_redirects=False,
+                ) as resp:
+                    text = (await resp.text(errors="replace")).strip()
+                    if resp.status == 401 and attempt == 1:
+                        # A switch action is worth a new login, unlike a poll
+                        await self._connect()
+                        continue
+                    if resp.status != 200:
+                        why = text.splitlines()[0] if text else f"HTTP {resp.status}"
+                        raise RuntimeError(f"switch rejected '{cmd}': {why}")
+                self._last_ok = time.monotonic()
+                self._paused_until = 0.0  # the session is ours again, if it was not
+                _LOGGER.info("[%s] %s", self.ip, cmd)
+                return
 
     async def install_firmware(self, image: bytes) -> bool:
         """Upload the image and wait for the switch to come back, as one step.

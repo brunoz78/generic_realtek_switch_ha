@@ -53,6 +53,7 @@ Tested with RTLPlayground `v0.1.0-1856aeb`. The web interface is the same on eve
 - 🔌 **Port monitoring** — one sensor per port with link and speed (e.g. `Disconnected`, `1000M`, `2500M`), optionally duplex, flow control, packet and error counters
 - 🟩 **Port strip for dashboards** — a card of its own shows all ports of a switch like the RTLPlayground web interface, coloured by speed
 - 🔄 **Reboot button** — restart the switch from any dashboard or automation
+- 🔀 **Turn ports on and off** — with RTLPlayground, one switch per port, e.g. for automations
 - ⬆️ **Firmware update** — with RTLPlayground, install new firmware straight from Home Assistant; the right image is picked automatically
 - ⚡ **Direct polling on the LAN** — fully local, no cloud, no proxy
 - 🔧 **Adjustable polling interval** — 10 to 300 seconds (default 30 s)
@@ -120,6 +121,7 @@ Each switch gets **one device** named `Switch <IP address>`, e.g. `Switch 192.16
 | Port N RX Errors | Sensor | disabled | Packets received with errors (increasing) |
 | Port N TX / RX | Sensor | disabled | Bytes (increasing) — **only** if the switch has byte counters (KP-9000-9XHML-X and ZX-SWTGW215AS don't) |
 | Port N learned devices | Sensor | disabled | Number of MAC addresses the switch has learned on this port, roughly the number of devices behind it — **only** with RTLPlayground from October 2026 |
+| Port N enabled | Switch | disabled | Turns the port on or off (until the next restart of the switch) — **only** with RTLPlayground, not for SFP slots |
 
 **Disconnected** means the port is enabled but nothing is connected (no cable or the other side is off). **Disabled** means the port was switched off on purpose in the web interface of the switch.
 
@@ -225,15 +227,18 @@ There is a 0.4 s pause between requests so the microcontroller of the switch isn
 | Last restart (point in time, from the uptime) | — | ✅ with firmware that reports the uptime (`uptime` in `/information.json`) |
 | Port name and SFP module | — | as attributes `port_name` and `sfp_module` of the "Port N" sensor |
 | Learned devices per port | — | ✅ from October 2026 (`macs` in `/status.json`) |
+| Turn ports on/off | — | ✅ switch "Port N enabled", disabled by default |
 | Firmware | e.g. `V1.9.1` | e.g. `RTLPlayground v0.1.0-f0aea3d` |
 
 An SFP slot without a module shows as `Disconnected`, not `Disabled`.
+
+**Turning ports on and off:** every RJ45 port gets the switch **Port N enabled** (`switch.switch_<ip>_port_<n>_enabled`). It works like disabling a port in the web interface and changes the running configuration only: after a restart of the switch the port is as saved in flash; it only stays with "Save to flash" in the web interface. The switches are **disabled by default**: turning off the port Home Assistant or your own computer reaches the switch through locks you out until the next restart. So enable only the switches of the ports you really want to control. SFP slots get no switch.
 
 **Sessions:** older firmware knows only one logged-in session. Logging in with a browser takes the session away from Home Assistant. The integration notices that and **pauses polling for 5 minutes** (the entities are "Unavailable" meanwhile) so the web interface stays usable; then it logs in again — which logs the browser out. If the firmware keeps several sessions, the integration notices that at login: browser and Home Assistant don't get in each other's way, and after a restart of the switch it logs in again right away, without a pause.
 
 **Firmware update:** switches with RTLPlayground get the entity **Firmware** (`update.switch_<ip>_firmware`). It compares the installed version with the latest release of a GitHub repository (default `brunoz78/RTLPlayground`, changeable under **Configure**) and shows "Update available" like other devices in Home Assistant, with release notes — but only if the release holds an image for exactly this model. The default repository builds only the models tested above; for other switches the entity stays quiet until you enter a repository with fitting images under **Configure**. **Install** downloads the image for exactly this device — recognised by the device name the firmware reports, which every image contains —, checks size and checksum, uploads it like the web interface does and waits until the switch runs again (about 1–2 minutes). If no image of the release fits the device, nothing is installed. When several switches are updated at once, the integration handles them one after the other, so no upload breaks off because a switch in front of it is restarting. An interrupted upload is harmless anyway: the firmware only takes over an image once it is complete and its checksum is right. The integration asks the repository at most once an hour; whether a new release has a fitting image it checks once per release and model (downloading the images, 512 KiB each).
 
-**Polling:** `POST /login` with the password → session cookie; then `GET /information.json` (model, MAC, firmware, temperature) and `GET /status.json` (link, speed, packet and error counters per port). The reboot button calls `GET /reset`, a firmware update `POST /upload`.
+**Polling:** `POST /login` with the password → session cookie; then `GET /information.json` (model, MAC, firmware, temperature) and `GET /status.json` (link, speed, packet and error counters per port). The reboot button calls `GET /reset`, a firmware update `POST /upload`, a port switch `POST /cmd` with `port <n> on` or `off`.
 
 ---
 
