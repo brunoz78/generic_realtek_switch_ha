@@ -121,7 +121,7 @@ Pro Switch gibt es **ein Gerät** mit dem Namen `Switch <IP-Adresse>`, z. B. `Sw
 | Port N Empfangsfehler | Sensor | deaktiviert | Fehlerhaft empfangene Pakete (fortlaufend) |
 | Port N Gesendet / Empfangen | Sensor | deaktiviert | Bytes (fortlaufend) — **nur** wenn der Switch Byte-Zähler liefert (KP-9000-9XHML-X und ZX-SWTGW215AS tun das nicht) |
 | Port N Gelernte Geräte | Sensor | deaktiviert | Anzahl MAC-Adressen, die der Switch an diesem Port gelernt hat, also etwa die Zahl der Geräte dahinter — **nur** mit RTLPlayground ab Oktober 2026 |
-| Port N aktiv | Schalter | deaktiviert | Schaltet den Port ein oder aus (bis zum nächsten Neustart des Switches) — **nur** mit RTLPlayground, nicht für SFP-Steckplätze |
+| Port N aktiv | Schalter | aktiv | Schaltet den Port ein oder aus (bis zum nächsten Neustart des Switches) — **nur** mit RTLPlayground, nicht für SFP-Steckplätze |
 
 **Getrennt** heisst: Der Port ist eingeschaltet, aber es ist kein Gerät verbunden (kein Kabel oder Gegenstelle aus). **Deaktiviert** heisst: Der Port wurde in der Weboberfläche des Switches bewusst abgeschaltet.
 
@@ -154,7 +154,7 @@ expected:             # optional: Ports, die mindestens so schnell laufen sollen
 
 **Aktionen in der Kopfzeile:** ↻ startet den Switch neu (nach Rückfrage), **Update** erscheint, wenn die Firmware-Entität eine neue Version anbietet, und öffnet sie, ↗ öffnet die Weboberfläche des Switches. Jede Aktion lässt sich im Karten-Editor ausschalten (`show_reboot`, `show_update`, `show_web`: `false`).
 
-**Ports ein- und ausschalten:** Mit der Option **Ports per langem Drücken ein-/ausschalten** (`port_toggle: true`, standardmässig aus) schaltet ein **langes Drücken** (1 Sekunde, die Kachel füllt sich dabei) einen Port aus oder ein — erst **nach einer Rückfrage**. Ein kurzer Klick öffnet weiterhin die Details. Dafür muss der Schalter „Port N aktiv“ des Ports in Home Assistant aktiviert sein; sonst sagt die Karte, wo man ihn aktiviert. Nur mit RTLPlayground, nicht für SFP-Steckplätze.
+**Ports ein- und ausschalten:** Mit der Option **Ports per langem Drücken ein-/ausschalten** (`port_toggle: true`, standardmässig aus) schaltet ein **langes Drücken** (1 Sekunde, die Kachel füllt sich dabei) einen Port aus oder ein — erst **nach einer Rückfrage**. Ein kurzer Klick öffnet weiterhin die Details. Dafür nutzt die Karte den Schalter „Port N aktiv“ des Ports; ist er in Home Assistant deaktiviert, sagt die Karte, wo man ihn aktiviert. Nur mit RTLPlayground, nicht für SFP-Steckplätze.
 
 Nach einem Update der Integration lädt der Browser die neue Karte von selbst; falls nicht, die Seite einmal mit Strg+F5 neu laden. Die Home-Assistant-App hat einen eigenen Zwischenspeicher: dort *Einstellungen → Companion App → Fehlerbehebung → Frontend-Cache zurücksetzen* wählen und die App neu starten.
 
@@ -229,12 +229,12 @@ Zwischen den einzelnen Anfragen liegt eine Pause von 0,4 s, damit der Mikrocontr
 | Letzter Neustart (Zeitpunkt, aus der Betriebszeit) | — | ✅ ab Firmware mit Betriebszeit (`uptime` in `/information.json`) |
 | Port-Name und SFP-Modul | — | als Attribute `port_name` und `sfp_module` am Sensor „Port N“ |
 | Gelernte Geräte pro Port | — | ✅ ab Oktober 2026 (`macs` in `/status.json`) |
-| Port ein-/ausschalten | — | ✅ Schalter „Port N aktiv“, standardmässig deaktiviert |
+| Port ein-/ausschalten | — | ✅ Schalter „Port N aktiv“ |
 | Firmware | z. B. `V1.9.1` | z. B. `RTLPlayground v0.1.0-f0aea3d` |
 
 Ein SFP-Steckplatz ohne Modul erscheint als `Getrennt`, nicht als `Deaktiviert`.
 
-**Ports ein- und ausschalten:** Für jeden RJ45-Port gibt es den Schalter **Port N aktiv** (`switch.switch_<ip>_port_<n>_enabled`). Er wirkt wie das Deaktivieren in der Weboberfläche und ändert nur die laufende Konfiguration: Nach einem Neustart des Switches ist der Port wieder so, wie er im Flash gespeichert ist; dauerhaft wird es erst mit „Im Flash speichern“ in der Weboberfläche. Die Schalter sind **standardmässig deaktiviert**: Wer den Port ausschaltet, über den Home Assistant oder der eigene Rechner den Switch erreicht, sperrt sich bis zum nächsten Neustart aus. Aktiviere deshalb nur die Schalter der Ports, die du wirklich steuern willst. SFP-Steckplätze haben keinen Schalter.
+**Ports ein- und ausschalten:** Für jeden RJ45-Port gibt es den Schalter **Port N aktiv** (`switch.switch_<ip>_port_<n>_enabled`). Er wirkt wie das Deaktivieren in der Weboberfläche und ändert nur die laufende Konfiguration: Nach einem Neustart des Switches ist der Port wieder so, wie er im Flash gespeichert ist; dauerhaft wird es erst mit „Im Flash speichern“ in der Weboberfläche. **Vorsicht:** Wer den Port ausschaltet, über den Home Assistant oder der eigene Rechner den Switch erreicht, sperrt sich bis zum nächsten Neustart aus. Die Karte schaltet deshalb nur nach langem Drücken und einer Rückfrage; Schalter, die du nie brauchst, kannst du in Home Assistant deaktivieren. SFP-Steckplätze haben keinen Schalter.
 
 **Anmeldungen:** Die bisherige Firmware kennt nur eine angemeldete Sitzung. Meldet man sich im Browser an, verliert Home Assistant seine Sitzung. Die Integration erkennt das und **pausiert die Abfrage dann für 5 Minuten** (die Entitäten sind so lange „Nicht verfügbar“), damit die Weboberfläche benutzbar bleibt; danach meldet sie sich wieder an — und meldet damit den Browser ab. Kennt die Firmware mehrere Sitzungen zugleich, merkt die Integration das bei der Anmeldung: Browser und Home Assistant stören sich dann nicht, und nach einem Neustart des Switches meldet sie sich sofort wieder an, ohne Pause.
 

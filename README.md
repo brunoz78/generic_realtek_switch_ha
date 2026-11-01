@@ -121,7 +121,7 @@ Each switch gets **one device** named `Switch <IP address>`, e.g. `Switch 192.16
 | Port N RX Errors | Sensor | disabled | Packets received with errors (increasing) |
 | Port N TX / RX | Sensor | disabled | Bytes (increasing) — **only** if the switch has byte counters (KP-9000-9XHML-X and ZX-SWTGW215AS don't) |
 | Port N learned devices | Sensor | disabled | Number of MAC addresses the switch has learned on this port, roughly the number of devices behind it — **only** with RTLPlayground from October 2026 |
-| Port N enabled | Switch | disabled | Turns the port on or off (until the next restart of the switch) — **only** with RTLPlayground, not for SFP slots |
+| Port N enabled | Switch | enabled | Turns the port on or off (until the next restart of the switch) — **only** with RTLPlayground, not for SFP slots |
 
 **Disconnected** means the port is enabled but nothing is connected (no cable or the other side is off). **Disabled** means the port was switched off on purpose in the web interface of the switch.
 
@@ -154,7 +154,7 @@ expected:             # optional: ports that should run at least this fast
 
 **Actions in the header:** ↻ restarts the switch (after asking), **Update** appears when the firmware entity offers a new version and opens it, ↗ opens the web interface of the switch. Each can be switched off in the card editor (`show_reboot`, `show_update`, `show_web`: `false`).
 
-**Turning ports on and off:** with the option **Turn ports on/off by a long press** (`port_toggle: true`, off by default) a **long press** (1 second, the tile fills up meanwhile) turns a port off or on — only **after asking**. A short click still opens the details. The port's "Port N enabled" switch has to be enabled in Home Assistant; otherwise the card says where to enable it. RTLPlayground only, not for SFP slots.
+**Turning ports on and off:** with the option **Turn ports on/off by a long press** (`port_toggle: true`, off by default) a **long press** (1 second, the tile fills up meanwhile) turns a port off or on — only **after asking**. A short click still opens the details. The card uses the port's "Port N enabled" switch; if that is disabled in Home Assistant, the card says where to enable it. RTLPlayground only, not for SFP slots.
 
 After an update of the integration the browser loads the new card by itself; if not, reload the page once with Ctrl+F5. The Home Assistant app keeps its own cache: there, use *Settings → Companion app → Troubleshooting → Reset frontend cache* and restart the app.
 
@@ -229,12 +229,12 @@ There is a 0.4 s pause between requests so the microcontroller of the switch isn
 | Last restart (point in time, from the uptime) | — | ✅ with firmware that reports the uptime (`uptime` in `/information.json`) |
 | Port name and SFP module | — | as attributes `port_name` and `sfp_module` of the "Port N" sensor |
 | Learned devices per port | — | ✅ from October 2026 (`macs` in `/status.json`) |
-| Turn ports on/off | — | ✅ switch "Port N enabled", disabled by default |
+| Turn ports on/off | — | ✅ switch "Port N enabled" |
 | Firmware | e.g. `V1.9.1` | e.g. `RTLPlayground v0.1.0-f0aea3d` |
 
 An SFP slot without a module shows as `Disconnected`, not `Disabled`.
 
-**Turning ports on and off:** every RJ45 port gets the switch **Port N enabled** (`switch.switch_<ip>_port_<n>_enabled`). It works like disabling a port in the web interface and changes the running configuration only: after a restart of the switch the port is as saved in flash; it only stays with "Save to flash" in the web interface. The switches are **disabled by default**: turning off the port Home Assistant or your own computer reaches the switch through locks you out until the next restart. So enable only the switches of the ports you really want to control. SFP slots get no switch.
+**Turning ports on and off:** every RJ45 port gets the switch **Port N enabled** (`switch.switch_<ip>_port_<n>_enabled`). It works like disabling a port in the web interface and changes the running configuration only: after a restart of the switch the port is as saved in flash; it only stays with "Save to flash" in the web interface. **Careful:** turning off the port Home Assistant or your own computer reaches the switch through locks you out until the next restart. The card therefore only switches after a long press and asking; switches you never need can be disabled in Home Assistant. SFP slots get no switch.
 
 **Sessions:** older firmware knows only one logged-in session. Logging in with a browser takes the session away from Home Assistant. The integration notices that and **pauses polling for 5 minutes** (the entities are "Unavailable" meanwhile) so the web interface stays usable; then it logs in again — which logs the browser out. If the firmware keeps several sessions, the integration notices that at login: browser and Home Assistant don't get in each other's way, and after a restart of the switch it logs in again right away, without a pause.
 

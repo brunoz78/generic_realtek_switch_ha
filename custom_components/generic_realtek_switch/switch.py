@@ -2,8 +2,9 @@
 
 One switch per RJ45 port, under the parent switch device. Like the web
 interface they change the running configuration only: after a restart the
-port is as saved in flash. Disabled by default, because turning off the port
-Home Assistant reaches the switch through locks it out until a restart.
+port is as saved in flash. Turning off the port Home Assistant reaches the
+switch through locks it out until a restart; the card therefore only does it
+on a long press and after asking.
 SFP cages get none: their "enabled" only says whether a module is plugged in.
 """
 from __future__ import annotations
@@ -16,6 +17,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -36,6 +38,16 @@ async def async_setup_entry(
     coordinator: SwitchCoordinator = hass.data[DOMAIN][entry.entry_id]
     if not isinstance(coordinator.scraper, RtlPlaygroundClient) or not coordinator.data:
         return
+    # 1.2.14 and 1.2.15 created the switches disabled; turn those on. Switches
+    # the user disabled are disabled by the user and stay off.
+    ent_reg = er.async_get(hass)
+    for ent in er.async_entries_for_config_entry(ent_reg, entry.entry_id):
+        if (
+            ent.domain == "switch"
+            and ent.unique_id.endswith("_enabled")
+            and ent.disabled_by is er.RegistryEntryDisabler.INTEGRATION
+        ):
+            ent_reg.async_update_entity(ent.entity_id, disabled_by=None)
     async_add_entities(
         PortEnabledSwitch(coordinator, p.port) for p in coordinator.data.ports if not p.sfp
     )
@@ -47,7 +59,6 @@ class PortEnabledSwitch(CoordinatorEntity[SwitchCoordinator], SwitchEntity):
     _attr_has_entity_name = True
     _attr_translation_key = "port_enabled"
     _attr_entity_category = EntityCategory.CONFIG
-    _attr_entity_registry_enabled_default = False
 
     def __init__(self, coordinator: SwitchCoordinator, port_num: str) -> None:
         super().__init__(coordinator)
