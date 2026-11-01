@@ -154,6 +154,8 @@ expected:             # optional: Ports, die mindestens so schnell laufen sollen
 
 **Aktionen in der Kopfzeile:** ↻ startet den Switch neu (nach Rückfrage), **Update** erscheint, wenn die Firmware-Entität eine neue Version anbietet, und öffnet sie, ↗ öffnet die Weboberfläche des Switches. Jede Aktion lässt sich im Karten-Editor ausschalten (`show_reboot`, `show_update`, `show_web`: `false`).
 
+**Ports ein- und ausschalten:** Mit der Option **Ports per langem Drücken ein-/ausschalten** (`port_toggle: true`, standardmässig aus) schaltet ein **langes Drücken** (1 Sekunde, die Kachel füllt sich dabei) einen Port aus oder ein — erst **nach einer Rückfrage**. Ein kurzer Klick öffnet weiterhin die Details. Dafür muss der Schalter „Port N aktiv“ des Ports in Home Assistant aktiviert sein; sonst sagt die Karte, wo man ihn aktiviert. Nur mit RTLPlayground, nicht für SFP-Steckplätze.
+
 Nach einem Update der Integration lädt der Browser die neue Karte von selbst; falls nicht, die Seite einmal mit Strg+F5 neu laden. Die Home-Assistant-App hat einen eigenen Zwischenspeicher: dort *Einstellungen → Companion App → Fehlerbehebung → Frontend-Cache zurücksetzen* wählen und die App neu starten.
 
 ---

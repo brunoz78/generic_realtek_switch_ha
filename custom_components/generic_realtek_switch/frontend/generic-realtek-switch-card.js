@@ -15,6 +15,8 @@
  *   show_reboot: true       # optional: actions in the header, all on by default
  *   show_update: true
  *   show_web: true
+ *   port_toggle: false      # optional: a long press turns a port on or off,
+ *                           # after asking (needs the "Port N enabled" switch)
  */
 const DOMAIN = "generic_realtek_switch";
 const CARD = "generic-realtek-switch-card";
@@ -32,6 +34,8 @@ const SPEED = {
   "5000m": ["5G", "g25"],
   "10g": ["10G", "g10"],
 };
+// How long a port tile has to be held before it asks to turn the port on or off
+const HOLD_MS = 1000;
 // Speed in Mbit/s per port state, to compare with the expected speed
 const MBIT = { "10m": 10, "100m": 100, "1000m": 1000, "2500m": 2500, "5000m": 5000, "10g": 10000 };
 const TEXT = {
@@ -44,6 +48,13 @@ const TEXT = {
     update: "Update", updating: "Update läuft…", update_t: (v) => `Firmware-Update auf ${v} verfügbar`,
     web: "Weboberfläche öffnen",
     show_reboot: "Neustart-Knopf", show_update: "Hinweis auf Firmware-Update", show_web: "Link zur Weboberfläche",
+    port_toggle: "Ports per langem Drücken ein-/ausschalten", hold: "lange drücken: ein/aus",
+    off_q: (p, n) => `Port ${p} von ${n} ausschalten?\n\nDie Geräte an diesem Port verlieren die Verbindung. `
+      + "Ist es der Port, über den der Switch mit dem Netz verbunden ist, bleibt der Switch bis zum nächsten Neustart unerreichbar.",
+    on_q: (p, n) => `Port ${p} von ${n} einschalten?`,
+    no_switch: (p, n) => `Der Schalter „Port ${p} aktiv“ ist in Home Assistant deaktiviert.\n\n`
+      + `Aktivieren unter Einstellungen → Geräte & Dienste → Generic Realtek Switch → ${n} → Entitäten.`,
+    no_sfp: "SFP-Ports lassen sich nicht ein- und ausschalten.",
   },
   en: {
     down: "down", off: "off", na: "–", up: "connected", none: "No switch selected", device: "Switch",
@@ -54,6 +65,13 @@ const TEXT = {
     update: "Update", updating: "Updating…", update_t: (v) => `Firmware update to ${v} available`,
     web: "Open web interface",
     show_reboot: "Restart button", show_update: "Firmware update notice", show_web: "Link to the web interface",
+    port_toggle: "Turn ports on/off by a long press", hold: "long press: on/off",
+    off_q: (p, n) => `Turn off port ${p} of ${n}?\n\nThe devices on this port lose their connection. `
+      + "If it is the port that connects the switch to the network, the switch stays unreachable until its next restart.",
+    on_q: (p, n) => `Turn on port ${p} of ${n}?`,
+    no_switch: (p, n) => `The switch "Port ${p} enabled" is disabled in Home Assistant.\n\n`
+      + `Enable it under Settings → Devices & services → Generic Realtek Switch → ${n} → Entities.`,
+    no_sfp: "SFP ports cannot be turned on and off.",
   },
 };
 
@@ -102,6 +120,17 @@ function portEntities(hass, deviceId) {
     })
     .filter((p) => !Number.isNaN(p.num))
     .sort((a, b) => a.num - b.num);
+}
+
+// "Port N enabled" switches of a device: port number → entity id
+function portSwitches(hass, deviceId) {
+  const out = {};
+  for (const e of Object.values(hass.entities || {})) {
+    if (e.device_id !== deviceId || e.platform !== DOMAIN || e.translation_key !== "port_enabled") continue;
+    const m = e.entity_id.match(/_port_(\d+)_enabled$/);
+    if (m && hass.states[e.entity_id]) out[Number(m[1])] = e.entity_id;
+  }
+  return out;
 }
 
 // Entity of the device by its translation key, e.g. the reboot button
@@ -166,10 +195,13 @@ class GenericRealtekSwitchCard extends HTMLElement {
     const upd = updateId ? hass.states[updateId] : undefined;
     const updateOn = upd && (upd.state === "on" || upd.attributes?.in_progress);
     const web = cfg.show_web !== false ? dev?.configuration_url : undefined;
+    const toggle = cfg.port_toggle === true;
+    const switches = toggle ? portSwitches(hass, cfg.device) : {};
+    this._toggle = { on: toggle, switches, title, t };
 
     // Only redraw when something visible changed
     const sig = JSON.stringify([title, dark, t.up, expected, rebootId, upd?.state, upd?.attributes?.in_progress,
-      upd?.attributes?.latest_version, web,
+      upd?.attributes?.latest_version, web, toggle,
       ports.map((p) => [p.id, p.st?.state, p.st?.attributes?.port_name, p.st?.attributes?.learned_macs, p.st?.attributes?.sfp])]);
     if (sig === this._sig) return;
     this._sig = sig;
@@ -203,10 +235,11 @@ class GenericRealtekSwitchCard extends HTMLElement {
         warn = t.want(speedLabel(want), label);
       }
       const a = p.st?.attributes || {};
-      const tip = [`Port ${p.num}`, a.port_name, a.sfp_module, a.learned_macs != null ? `${t.learned}: ${a.learned_macs}` : "", warn]
+      const tip = [`Port ${p.num}`, a.port_name, a.sfp_module, a.learned_macs != null ? `${t.learned}: ${a.learned_macs}` : "", warn,
+        toggle && !a.sfp ? t.hold : ""]
         .filter(Boolean)
         .join(" · ");
-      return `<div class="${cls}" style="${color ? `--pc:${color}` : ""}" data-id="${esc(p.id)}" title="${esc(tip)}" role="button" tabindex="0">
+      return `<div class="${cls}" style="${color ? `--pc:${color}` : ""}" data-id="${esc(p.id)}" data-num="${p.num}" title="${esc(tip)}" role="button" tabindex="0">
         ${warn ? `<span class="wb">!</span>` : ""}<span class="pn">${p.num}</span><span class="jack"></span><span class="ps">${esc(label)}</span></div>`;
     });
 
@@ -260,6 +293,13 @@ class GenericRealtekSwitchCard extends HTMLElement {
           position: absolute; top: -7px; right: -7px; width: 15px; height: 15px; border-radius: 50%;
           background: var(--error-color, #db4437); color: #fff; font-size: 11px; font-weight: 700; line-height: 15px;
         }
+        /* Long press to turn a port on or off: the tile fills up while held */
+        .strip.toggle .port { user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; touch-action: manipulation; }
+        .port.holding::after {
+          content: ""; position: absolute; inset: 0; border-radius: 5px; background: var(--primary-color);
+          opacity: .3; transform-origin: bottom; animation: hold ${HOLD_MS}ms linear forwards; pointer-events: none;
+        }
+        @keyframes hold { from { transform: scaleY(0); } to { transform: scaleY(1); } }
         .bad { font-size: 12px; color: var(--error-color, #db4437); font-weight: 600; }
         .acts { margin-left: auto; display: flex; gap: 2px; align-items: center; align-self: center; }
         .act {
@@ -275,7 +315,7 @@ class GenericRealtekSwitchCard extends HTMLElement {
       </style>
       <ha-card>
         ${title || ports.length ? `<div class="head"><span class="title">${esc(title)}</span>${ports.length ? `<span class="count">${up} / ${ports.length} ${esc(t.up)}</span>` : ""}${below ? `<span class="bad">⚠ ${esc(t.below(below))}</span>` : ""}${actsHtml}</div>` : ""}
-        ${ports.length ? `<div class="strip">${tiles.join("")}</div>` : `<div class="none">${esc(t.none)}</div>`}
+        ${ports.length ? `<div class="strip${toggle ? " toggle" : ""}">${tiles.join("")}</div>` : `<div class="none">${esc(t.none)}</div>`}
       </ha-card>`;
 
     const more = (entityId) =>
@@ -288,14 +328,54 @@ class GenericRealtekSwitchCard extends HTMLElement {
     this.shadowRoot.querySelectorAll(".port").forEach((el) => {
       const open = () =>
         this.dispatchEvent(new CustomEvent("hass-more-info", { bubbles: true, composed: true, detail: { entityId: el.dataset.id } }));
-      el.addEventListener("click", open);
+      let timer = null, held = false;
+      const cancel = () => {
+        clearTimeout(timer);
+        timer = null;
+        el.classList.remove("holding");
+      };
+      el.addEventListener("click", () => {
+        // The click that ends a long press does not open the details
+        if (held) held = false;
+        else open();
+      });
       el.addEventListener("keydown", (ev) => {
         if (ev.key === "Enter" || ev.key === " ") {
           ev.preventDefault();
           open();
         }
       });
+      if (!toggle) return;
+      el.addEventListener("pointerdown", (ev) => {
+        if (ev.button !== 0) return;
+        held = false;
+        el.classList.add("holding");
+        timer = setTimeout(() => {
+          cancel();
+          held = true;
+          this._askToggle(Number(el.dataset.num), el.classList.contains("sfp"), el.classList.contains("dis"));
+        }, HOLD_MS);
+      });
+      for (const ev of ["pointerup", "pointerleave", "pointercancel"]) el.addEventListener(ev, cancel);
+      el.addEventListener("contextmenu", (ev) => ev.preventDefault());
     });
+  }
+
+  // After a long press: ask, then turn the port off or on through its switch entity
+  _askToggle(num, sfp, off) {
+    const { switches, title, t } = this._toggle;
+    if (sfp) {
+      window.alert(t.no_sfp);
+      return;
+    }
+    const entityId = switches[num];
+    if (!entityId) {
+      window.alert(t.no_switch(num, title));
+      return;
+    }
+    const isOn = this._hass.states[entityId]?.state === "on" || (this._hass.states[entityId]?.state !== "off" && !off);
+    if (!window.confirm(isOn ? t.off_q(num, title) : t.on_q(num, title))) return;
+    this._hass.callService("switch", isOn ? "turn_off" : "turn_on", { entity_id: entityId });
   }
 }
 
@@ -321,6 +401,8 @@ class GenericRealtekSwitchCardEditor extends HTMLElement {
         if (!config.title) delete config.title;
         // Actions are on by default: only store the ones turned off
         for (const k of ["show_reboot", "show_update", "show_web"]) if (config[k] !== false) delete config[k];
+        // Turning ports on and off is off by default: only store it when on
+        if (config.port_toggle !== true) delete config.port_toggle;
         if (expected_text !== undefined) {
           const exp = parseExpected(expected_text);
           const keys = Object.keys(exp);
@@ -341,16 +423,20 @@ class GenericRealtekSwitchCardEditor extends HTMLElement {
       { name: "show_reboot", selector: { boolean: {} } },
       { name: "show_update", selector: { boolean: {} } },
       { name: "show_web", selector: { boolean: {} } },
+      { name: "port_toggle", selector: { boolean: {} } },
     ];
     this._form.computeLabel = (s) => (
-      { device: t.device, title: t.title, expected_text: t.expected, show_reboot: t.show_reboot, show_update: t.show_update, show_web: t.show_web }
+      {
+        device: t.device, title: t.title, expected_text: t.expected, show_reboot: t.show_reboot, show_update: t.show_update,
+        show_web: t.show_web, port_toggle: t.port_toggle,
+      }
     )[s.name];
     // Keep what is being typed; the stored config only holds the parsed ports
     if (this._typed === undefined || expectedText(this._typed) !== expectedText(this._config.expected)) {
       this._typed = expectedText(this._config.expected);
     }
     this._form.data = {
-      show_reboot: true, show_update: true, show_web: true, ...this._config, expected_text: this._typed,
+      show_reboot: true, show_update: true, show_web: true, port_toggle: false, ...this._config, expected_text: this._typed,
     };
   }
 }

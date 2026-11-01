@@ -154,6 +154,8 @@ expected:             # optional: ports that should run at least this fast
 
 **Actions in the header:** ↻ restarts the switch (after asking), **Update** appears when the firmware entity offers a new version and opens it, ↗ opens the web interface of the switch. Each can be switched off in the card editor (`show_reboot`, `show_update`, `show_web`: `false`).
 
+**Turning ports on and off:** with the option **Turn ports on/off by a long press** (`port_toggle: true`, off by default) a **long press** (1 second, the tile fills up meanwhile) turns a port off or on — only **after asking**. A short click still opens the details. The port's "Port N enabled" switch has to be enabled in Home Assistant; otherwise the card says where to enable it. RTLPlayground only, not for SFP slots.
+
 After an update of the integration the browser loads the new card by itself; if not, reload the page once with Ctrl+F5. The Home Assistant app keeps its own cache: there, use *Settings → Companion app → Troubleshooting → Reset frontend cache* and restart the app.
 
 ---
