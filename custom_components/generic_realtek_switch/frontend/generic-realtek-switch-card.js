@@ -55,6 +55,7 @@ const TEXT = {
     no_switch: (p, n) => `Der Schalter „Port ${p} aktiv“ ist in Home Assistant deaktiviert.\n\n`
       + `Aktivieren unter Einstellungen → Geräte & Dienste → Generic Realtek Switch → ${n} → Entitäten.`,
     no_sfp: "SFP-Ports lassen sich nicht ein- und ausschalten.",
+    cancel: "Abbrechen", ok: "OK", do_off: "Ausschalten", do_on: "Einschalten", do_reboot: "Neu starten",
   },
   en: {
     down: "down", off: "off", na: "–", up: "connected", none: "No switch selected", device: "Switch",
@@ -72,6 +73,7 @@ const TEXT = {
     no_switch: (p, n) => `The switch "Port ${p} enabled" is disabled in Home Assistant.\n\n`
       + `Enable it under Settings → Devices & services → Generic Realtek Switch → ${n} → Entities.`,
     no_sfp: "SFP ports cannot be turned on and off.",
+    cancel: "Cancel", ok: "OK", do_off: "Turn off", do_on: "Turn on", do_reboot: "Restart",
   },
 };
 
@@ -294,7 +296,9 @@ class GenericRealtekSwitchCard extends HTMLElement {
           background: var(--error-color, #db4437); color: #fff; font-size: 11px; font-weight: 700; line-height: 15px;
         }
         /* Long press to turn a port on or off: the tile fills up while held */
-        .strip.toggle .port { user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; touch-action: manipulation; }
+        /* touch-action none: otherwise Android takes a held finger for the start
+           of a scroll and cancels the press */
+        .strip.toggle .port { user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; touch-action: none; }
         .port.holding::after {
           content: ""; position: absolute; inset: 0; border-radius: 5px; background: var(--primary-color);
           opacity: .3; transform-origin: bottom; animation: hold ${HOLD_MS}ms linear forwards; pointer-events: none;
@@ -322,7 +326,7 @@ class GenericRealtekSwitchCard extends HTMLElement {
       this.dispatchEvent(new CustomEvent("hass-more-info", { bubbles: true, composed: true, detail: { entityId } }));
     this.shadowRoot.querySelector('[data-act="update"]')?.addEventListener("click", () => more(updateId));
     this.shadowRoot.querySelector('[data-act="reboot"]')?.addEventListener("click", () => {
-      if (window.confirm(t.reboot_q(title))) hass.callService("button", "press", { entity_id: rebootId });
+      askUser(t.reboot_q(title), t, t.do_reboot, () => this._hass.callService("button", "press", { entity_id: rebootId }));
     });
 
     this.shadowRoot.querySelectorAll(".port").forEach((el) => {
@@ -347,7 +351,7 @@ class GenericRealtekSwitchCard extends HTMLElement {
       });
       if (!toggle) return;
       el.addEventListener("pointerdown", (ev) => {
-        if (ev.button !== 0) return;
+        if (ev.button !== 0 && ev.pointerType === "mouse") return;
         held = false;
         el.classList.add("holding");
         timer = setTimeout(() => {
@@ -365,18 +369,71 @@ class GenericRealtekSwitchCard extends HTMLElement {
   _askToggle(num, sfp, off) {
     const { switches, title, t } = this._toggle;
     if (sfp) {
-      window.alert(t.no_sfp);
+      askUser(t.no_sfp, t);
       return;
     }
     const entityId = switches[num];
     if (!entityId) {
-      window.alert(t.no_switch(num, title));
+      askUser(t.no_switch(num, title), t);
       return;
     }
-    const isOn = this._hass.states[entityId]?.state === "on" || (this._hass.states[entityId]?.state !== "off" && !off);
-    if (!window.confirm(isOn ? t.off_q(num, title) : t.on_q(num, title))) return;
-    this._hass.callService("switch", isOn ? "turn_off" : "turn_on", { entity_id: entityId });
+    const st = this._hass.states[entityId]?.state;
+    const isOn = st === "on" || (st !== "off" && !off);
+    askUser(isOn ? t.off_q(num, title) : t.on_q(num, title), t, isOn ? t.do_off : t.do_on,
+      () => this._hass.callService("switch", isOn ? "turn_off" : "turn_on", { entity_id: entityId }));
   }
+}
+
+// A question of the card's own, instead of window.confirm(): the Home Assistant
+// app on Android does not show browser dialogs. It sits on document.body, so a
+// redraw of the card does not take it away. Without `action` it only informs.
+// Buttons only react to a press that starts after the dialog opened, so the
+// finger still down from the long press cannot answer it on release.
+function askUser(message, t, action, run) {
+  document.getElementById(`${CARD}-ask`)?.remove();
+  const host = document.createElement("div");
+  host.id = `${CARD}-ask`;
+  const root = host.attachShadow({ mode: "open" });
+  root.innerHTML = `
+    <style>
+      .bg { position: fixed; inset: 0; z-index: 9999; background: rgba(0, 0, 0, .45);
+        display: flex; align-items: center; justify-content: center; padding: 16px; }
+      .box { background: var(--card-background-color, #fff); color: var(--primary-text-color, #212121);
+        border-radius: 12px; padding: 20px 20px 12px; max-width: 380px; width: 100%;
+        box-shadow: 0 8px 28px rgba(0, 0, 0, .35); font-family: var(--paper-font-body1_-_font-family, sans-serif); }
+      .msg { white-space: pre-line; font-size: 15px; line-height: 1.45; }
+      .btns { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+      button { font: inherit; font-size: 14px; font-weight: 500; border: 0; border-radius: 18px; padding: 9px 16px;
+        cursor: pointer; background: none; color: var(--primary-color, #03a9f4); }
+      button.pri { background: var(--primary-color, #03a9f4); color: var(--text-primary-color, #fff); }
+    </style>
+    <div class="bg"><div class="box" role="dialog" aria-modal="true">
+      <div class="msg"></div>
+      <div class="btns">
+        ${action ? `<button class="no">${esc(t.cancel)}</button><button class="yes pri">${esc(action)}</button>`
+          : `<button class="no pri">${esc(t.ok)}</button>`}
+      </div>
+    </div></div>`;
+  root.querySelector(".msg").textContent = message;
+  let armed = false;
+  root.addEventListener("pointerdown", () => { armed = true; });
+  const close = () => {
+    host.remove();
+    document.removeEventListener("keydown", onKey);
+  };
+  const onKey = (ev) => {
+    if (ev.key === "Escape") close();
+  };
+  document.addEventListener("keydown", onKey);
+  root.querySelector(".no").addEventListener("click", () => {
+    if (armed) close();
+  });
+  root.querySelector(".yes")?.addEventListener("click", () => {
+    if (!armed) return;
+    close();
+    run();
+  });
+  document.body.appendChild(host);
 }
 
 class GenericRealtekSwitchCardEditor extends HTMLElement {
