@@ -64,10 +64,11 @@ Tested with RTLPlayground `v0.1.0-1856aeb`. The web interface is the same on eve
 
 ### Through HACS (recommended)
 
-1. HACS → Integrations → ⋮ → **Custom repositories**
-2. URL: `https://github.com/brunoz78/generic_realtek_switch_ha` · Type: **Integration**
-3. Install **Generic Realtek Switch** and restart Home Assistant
-4. **Settings → Devices & services → Add integration → Generic Realtek Switch**
+1. Open HACS and search for **Generic Realtek Switch**
+2. Download it and restart Home Assistant
+3. **Settings → Devices & services → Add integration → Generic Realtek Switch**
+
+If the search finds nothing, add the repository by hand first: HACS → ⋮ → **Custom repositories**, URL `https://github.com/brunoz78/generic_realtek_switch_ha`, type **Integration**.
 
 ### Manually
 

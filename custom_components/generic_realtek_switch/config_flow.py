@@ -5,6 +5,7 @@ import logging
 import re
 from typing import Any
 
+import aiohttp
 import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.const import CONF_HOST, CONF_PASSWORD, CONF_PORT, CONF_USERNAME
@@ -12,7 +13,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
-from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.aiohttp_client import async_create_clientsession
 
 from .const import (
     CONF_FIRMWARE,
@@ -42,8 +43,22 @@ STEP_SCHEMA = vol.Schema({
 
 
 async def _try_connect(hass: HomeAssistant, data: dict[str, Any]) -> tuple[SwitchData, str]:
-    """Detect the firmware, log in once and return the snapshot and firmware type."""
-    session = async_get_clientsession(hass)
+    """Detect the firmware, log in once and return the snapshot and firmware type.
+
+    Uses a session of its own like the running integration, closed afterwards.
+    """
+    session = async_create_clientsession(
+        hass, auto_cleanup=False, cookie_jar=aiohttp.DummyCookieJar()
+    )
+    try:
+        return await _try_connect_with(session, data)
+    finally:
+        await session.close()
+
+
+async def _try_connect_with(
+    session: aiohttp.ClientSession, data: dict[str, Any]
+) -> tuple[SwitchData, str]:
     http_port = data.get(CONF_PORT, DEFAULT_PORT)
     rtl = await detect_rtlplayground(session, data[CONF_HOST], http_port)
     if rtl is None:

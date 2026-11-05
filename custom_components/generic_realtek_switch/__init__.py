@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import inspect
 import logging
+
+import aiohttp
 import re
 from datetime import timedelta
 from pathlib import Path
@@ -21,7 +23,7 @@ from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
-from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.aiohttp_client import async_create_clientsession
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.loader import async_get_integration
@@ -126,7 +128,21 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if CONF_MIGRATED_FROM in entry.data:
         await _async_take_over(hass, entry)
 
-    session = async_get_clientsession(hass)
+    # Each switch gets its own HTTP session, so its login never mixes with the
+    # session Home Assistant shares between integrations. The login cookies are
+    # sent explicitly with each request; the dummy jar keeps the session from
+    # storing any. Closed again when the entry unloads or setup fails.
+    session = async_create_clientsession(hass, cookie_jar=aiohttp.DummyCookieJar())
+    try:
+        return await _async_setup_switch(hass, entry, session)
+    except BaseException:
+        await session.close()
+        raise
+
+
+async def _async_setup_switch(
+    hass: HomeAssistant, entry: ConfigEntry, session: aiohttp.ClientSession
+) -> bool:
     ip = entry.data[CONF_HOST]
     http_port = entry.data.get(CONF_PORT, 80)
 
@@ -162,6 +178,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = coordinator
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    entry.async_on_unload(session.close)
     # Changed options (polling interval, firmware repository) apply right away
     entry.async_on_unload(entry.add_update_listener(_async_options_updated))
     return True

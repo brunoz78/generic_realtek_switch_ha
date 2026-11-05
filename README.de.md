@@ -64,10 +64,11 @@ Getestet mit RTLPlayground `v0.1.0-1856aeb`. Die Weboberfläche ist auf allen Ge
 
 ### Über HACS (empfohlen)
 
-1. HACS → Integrationen → ⋮ → **Benutzerdefinierte Repositories**
-2. URL: `https://github.com/brunoz78/generic_realtek_switch_ha` · Typ: **Integration**
-3. **Generic Realtek Switch** installieren und Home Assistant neu starten
-4. **Einstellungen → Geräte & Dienste → Integration hinzufügen → Generic Realtek Switch**
+1. HACS öffnen und nach **Generic Realtek Switch** suchen
+2. Herunterladen und Home Assistant neu starten
+3. **Einstellungen → Geräte & Dienste → Integration hinzufügen → Generic Realtek Switch**
+
+Findet die Suche nichts, das Repository zuerst von Hand hinzufügen: HACS → ⋮ → **Benutzerdefinierte Repositories**, URL `https://github.com/brunoz78/generic_realtek_switch_ha`, Typ **Integration**.
 
 ### Manuell
 
