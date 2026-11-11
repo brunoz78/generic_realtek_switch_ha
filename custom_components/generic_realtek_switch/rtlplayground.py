@@ -37,8 +37,10 @@ from .const import (
     RTL_INFO,
     RTL_LOGIN,
     RTL_LOGIN_PAGE,
+    RTL_PORTS,
     RTL_RESET,
     RTL_STATUS,
+    RTL_TRAFFIC,
     RTL_UPLOAD,
 )
 from .scraper import PortData, SwitchData
@@ -61,6 +63,8 @@ _BOOT_JITTER = 120
 
 # "link" of /status.json → speed; index into LINKS in the firmware's app.js
 _LINK_SPEED = {1: "10M", 2: "100M", 3: "1000M", 4: "500M", 5: "10G", 6: "2500M", 7: "5000M"}
+# "link" of /traffic.json → speed, where the firmware names it differently
+_LINK_NAME = {"2.5G": "2500M", "5G": "5000M"}
 
 
 class SessionLost(Exception):
@@ -116,6 +120,7 @@ class RtlPlaygroundClient:
         self._paused_until = 0.0
         self._boot_time: datetime | None = None
         self._multi_session: bool | None = None  # known after the first login
+        self._new_api = False  # /ports.json and /traffic.json instead of /status.json
 
     # ------------------------------------------------------------------
     # HTTP
@@ -219,7 +224,7 @@ class RtlPlaygroundClient:
                 await self._connect()
             try:
                 info = await self._get_json(RTL_INFO)
-                status = await self._get_json(RTL_STATUS)
+                status = await self._get_ports()
             except SessionLost:
                 idle = time.monotonic() - self._last_ok
                 if self._multi_session:
@@ -236,7 +241,7 @@ class RtlPlaygroundClient:
                     return unavailable
                 await self._connect()
                 info = await self._get_json(RTL_INFO)
-                status = await self._get_json(RTL_STATUS)
+                status = await self._get_ports()
         except AuthFailed:
             self._session_id = None
             raise
@@ -260,19 +265,47 @@ class RtlPlaygroundClient:
             data.boot_time = boot
         return data
 
+    async def _get_ports(self) -> list[dict[str, Any]]:
+        """The ports in the shape of /status.json, from either API of the firmware.
+
+        A 404 means the switch runs the other API: after an update to a firmware
+        with the reshaped API, or back to an older one.
+        """
+        for _ in range(2):
+            try:
+                if not self._new_api:
+                    return await self._get_json(RTL_STATUS)
+                return _merge_ports(
+                    await self._get_json(RTL_PORTS), await self._get_json(RTL_TRAFFIC)
+                )
+            except aiohttp.ClientResponseError as exc:
+                if exc.status != 404:
+                    raise
+                self._new_api = not self._new_api
+                _LOGGER.debug(
+                    "[%s] Firmware has the %s API", self.ip, "reshaped" if self._new_api else "older"
+                )
+        raise RuntimeError("neither /status.json nor /ports.json found")
+
     def parse(self, info: dict[str, Any] | None, status: list[dict[str, Any]] | None) -> SwitchData:
-        """Turn /information.json and /status.json into a SwitchData snapshot."""
+        """Turn /information.json and /status.json (or its merged equivalent from
+        /ports.json and /traffic.json) into a SwitchData snapshot."""
         info = info or {}
         ports: list[PortData] = []
         for p in sorted(status or [], key=lambda x: x.get("portNum", 0)):
             port_num = str(p.get("portNum", ""))
             is_sfp = bool(p.get("isSFP"))
             enabled = bool(p.get("enabled"))
-            link = int(p.get("link") or 0)
+            link = p.get("link") or 0
+            if isinstance(link, str):
+                # Reshaped API: "DOWN" or the speed, e.g. "1000M" or "2.5G"
+                up, link_speed = link != "DOWN", _LINK_NAME.get(link, link)
+            else:
+                up, link_speed = bool(link), _LINK_SPEED.get(int(link), "")
             if not is_sfp and not enabled:
                 status_, link_txt, speed = PORT_STATUS_DISABLED, "Disabled", "Disabled"
-            elif link:
-                status_, link_txt, speed = PORT_STATUS_UP, "Link Up", _LINK_SPEED.get(link, "")
+            elif up:
+                status_, link_txt, speed = PORT_STATUS_UP, "Link Up", link_speed
             else:
                 # For SFP ports "enabled" only says whether a module is plugged in
                 status_, link_txt, speed = PORT_STATUS_DOWN, "Link Down", ""
@@ -442,3 +475,16 @@ def _temperature(raw: Any) -> float | None:
     """"45.3 C" → 45.3"""
     m = re.match(r"\s*(-?\d+(?:\.\d+)?)", raw) if isinstance(raw, str) else None
     return float(m.group(1)) if m else None
+
+
+def _merge_ports(ports: Any, traffic: Any) -> list[dict[str, Any]]:
+    """Join /ports.json and /traffic.json of the reshaped API by port number."""
+    by_port = {t.get("port"): t for t in traffic or [] if isinstance(t, dict)}
+    merged = []
+    for p in ports or []:
+        if not isinstance(p, dict):
+            continue
+        entry = {**by_port.get(p.get("port"), {}), **p}
+        entry["portNum"] = entry.pop("port", 0)
+        merged.append(entry)
+    return merged

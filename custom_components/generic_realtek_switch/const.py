@@ -28,6 +28,10 @@ RTL_LOGIN_PAGE = "/login.html"
 RTL_LOGIN  = "/login"
 RTL_INFO   = "/information.json"
 RTL_STATUS = "/status.json"
+# Since the API reshape of the firmware (logicog/RTLPlayground#768) /status.json
+# is split into the port settings and the link state with the counters
+RTL_PORTS  = "/ports.json"
+RTL_TRAFFIC = "/traffic.json"
 RTL_RESET  = "/reset"
 RTL_UPLOAD = "/upload"
 RTL_CMD    = "/cmd"

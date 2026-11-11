@@ -18,6 +18,9 @@ from generic_realtek_switch.rtlplayground import AuthFailed, RtlPlaygroundClient
 FIXTURES = pathlib.Path(__file__).parent / "fixtures" / "rtlplayground_swtgw218as"
 INFO = json.loads((FIXTURES / "information.json").read_text(encoding="utf-8"))
 STATUS = json.loads((FIXTURES / "status.json").read_text(encoding="utf-8"))
+# The same switch with the reshaped API (logicog/RTLPlayground#768)
+PORTS = json.loads((FIXTURES / "ports.json").read_text(encoding="utf-8"))
+TRAFFIC = json.loads((FIXTURES / "traffic.json").read_text(encoding="utf-8"))
 
 
 def parse():
@@ -76,6 +79,30 @@ def test_sfp_cage_is_marked():
     assert ports[8].sfp and not ports[0].sfp
 
 
+def test_reshaped_api_gives_the_same_ports():
+    old = parse().ports
+    new = RtlPlaygroundClient(None, "192.0.2.21", "1234").parse(
+        INFO, rtlplayground._merge_ports(PORTS, TRAFFIC)
+    ).ports
+    assert [(p.port, p.status, p.speed, p.name, p.sfp) for p in new] == [
+        (p.port, p.status, p.speed, p.name, p.sfp) for p in old
+    ]
+    assert [(p.tx_packets, p.rx_packets, p.tx_errors, p.rx_errors) for p in new] == [
+        (p.tx_packets, p.rx_packets, p.tx_errors, p.rx_errors) for p in old
+    ]
+
+
+def test_reshaped_api_sfp_module():
+    ports = [dict(p) for p in PORTS]
+    traffic = [dict(t) for t in TRAFFIC]
+    ports[8].update(enabled=True, sfp_vendor="FS      ", sfp_model="SFP-10GSR-85  ")
+    traffic[8].update(link="10G")
+    sfp = RtlPlaygroundClient(None, "192.0.2.21", "1234").parse(
+        INFO, rtlplayground._merge_ports(ports, traffic)
+    ).ports[8]
+    assert (sfp.status, sfp.speed, sfp.sfp_module) == ("up", "10G", "FS SFP-10GSR-85")
+
+
 def test_negative_and_missing_temperature():
     assert rtlplayground._temperature("-3.5 C") == -3.5
     assert rtlplayground._temperature(None) is None
@@ -88,8 +115,9 @@ class FakeSwitch:
     """Like the real firmware: one session at a time, or up to `slots` with
     newer firmware, the least recently created one replaced first."""
 
-    def __init__(self, password="1234", slots=1):
+    def __init__(self, password="1234", slots=1, reshaped=False):
         self.password = password
+        self.reshaped = reshaped
         self.slots = slots
         self.sessions = []
         self.logins = 0
@@ -118,7 +146,11 @@ class FakeSwitch:
         app.router.add_get("/login.html", self.login_page)
         app.router.add_post("/login", self.login)
         app.router.add_get("/information.json", self.json(lambda: self.info))
-        app.router.add_get("/status.json", self.json(STATUS))
+        if self.reshaped:
+            app.router.add_get("/ports.json", self.json(PORTS))
+            app.router.add_get("/traffic.json", self.json(TRAFFIC))
+        else:
+            app.router.add_get("/status.json", self.json(STATUS))
         app.router.add_get("/reset", self.do_reset)
         app.router.add_post("/upload", self.upload)
         app.router.add_post("/cmd", self.cmd)
@@ -200,6 +232,34 @@ def test_detect_and_scrape(monkeypatch):
 
     d = run(fake, go)
     assert d.available and len(d.ports) == 9 and fake.logins == 2
+
+
+def test_scrape_reshaped_api(monkeypatch):
+    no_delay(monkeypatch)
+    fake = FakeSwitch(reshaped=True)
+
+    async def go(session, client, port):
+        first = await client.scrape()
+        second = await client.scrape()
+        return first, second, client._new_api
+
+    first, second, new_api = run(fake, go)
+    assert first.available and second.available and new_api
+    assert {p.port: (p.status, p.speed) for p in second.ports}["1"] == ("up", "2500M")
+    assert fake.logins == 2
+
+
+def test_back_to_the_older_api(monkeypatch):
+    no_delay(monkeypatch)
+    fake = FakeSwitch()
+
+    async def go(session, client, port):
+        client._new_api = True  # as if the switch ran newer firmware before
+        d = await client.scrape()
+        return d, client._new_api
+
+    d, new_api = run(fake, go)
+    assert d.available and len(d.ports) == 9 and not new_api
 
 
 def test_wrong_password(monkeypatch):
