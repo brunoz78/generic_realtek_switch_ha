@@ -491,3 +491,10 @@ def test_install_firmware_waits_for_the_switch(monkeypatch):
     back, after = run(fake, go)
     assert back and after.available
     assert fake.uploaded == image
+
+
+def test_pcb_name():
+    client = RtlPlaygroundClient(None, "192.0.2.21", "1234")
+    assert client.parse({**INFO, "pcb_ver": "PCB_SWTG118AS_V2_0_16029"}, STATUS).pcb == "PCB_SWTG118AS_V2_0_16029"
+    assert client.parse({**INFO, "pcb_ver": "unknown"}, STATUS).pcb == ""
+    assert client.parse({k: v for k, v in INFO.items() if k != "pcb_ver"}, STATUS).pcb == ""

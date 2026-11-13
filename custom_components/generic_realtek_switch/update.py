@@ -116,16 +116,26 @@ class FirmwareUpdate(CoordinatorEntity[SwitchCoordinator], UpdateEntity):
     async def _async_check(self, _now: Any = None) -> None:
         releases = _releases(self.hass)
         release = await releases.latest(self._repo)
-        board = self.coordinator.data.model if self.coordinator.data else ""
+        board, model = self._board()
         # Offer a release only if it has an image for this switch: the default
         # repository builds a few boards, not every one RTLPlayground supports
         fits = False
-        if release and board and board != "Unknown":
+        if release and board:
             fits = release.version == self.installed_version or await releases.has_image_for(
-                release, board
+                release, board, model
             )
         self._release, self._fits = release, fits
         self.async_write_ha_state()
+
+    def _board(self) -> tuple[str, str]:
+        """What identifies the switch's board in an image, and its model name.
+
+        The PCB configuration (pcb_ver) when the firmware reports one: it stays
+        when the original renames a model. Older firmware only has the model.
+        """
+        data = self.coordinator.data
+        model = data.model if data and data.model != "Unknown" else ""
+        return (data.pcb if data and data.pcb else model), model
 
     @property
     def installed_version(self) -> str | None:
@@ -155,8 +165,8 @@ class FirmwareUpdate(CoordinatorEntity[SwitchCoordinator], UpdateEntity):
         release = await _releases(self.hass).latest(self._repo, force=True)
         if release is None:
             raise _error("update_no_release", repo=self._repo)
-        board = self.coordinator.data.model if self.coordinator.data else ""
-        if not board or board == "Unknown":
+        board, model = self._board()
+        if not board:
             raise _error("update_no_board")
 
         self._attr_in_progress = True
@@ -168,7 +178,7 @@ class FirmwareUpdate(CoordinatorEntity[SwitchCoordinator], UpdateEntity):
             self.async_write_ha_state()
             raise
         try:
-            image = await _releases(self.hass).image_for(release, board)
+            image = await _releases(self.hass).image_for(release, board, model)
             if image is None:
                 raise _error("update_no_image", release=release.tag, board=board)
             try:

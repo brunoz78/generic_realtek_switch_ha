@@ -23,12 +23,16 @@ def _crc(data: bytes, crc: int = 0) -> int:
     return crc
 
 
-def make_image(board: str) -> bytes:
-    """A 512 KiB image with the start bytes, the board name and a closing CRC."""
+def make_image(board: str, *more: str) -> bytes:
+    """A 512 KiB image with the start bytes, the board name (and further strings
+    such as the PCB name) and a closing CRC."""
     body = bytearray(IMAGE_SIZE - 2)
     body[:3] = b"\x00\x40\x02"
-    name = board.encode() + b"\x00"
-    body[0x1000:0x1000 + len(name)] = name
+    pos = 0x1000
+    for text in (board, *more):
+        name = text.encode() + b"\x00"
+        body[pos:pos + len(name)] = name
+        pos += len(name)
     state = _crc(body)
     for tail in range(0x10000):
         two = tail.to_bytes(2, "little")
@@ -188,3 +192,20 @@ def test_no_image_is_remembered_when_all_downloads_worked():
         assert await cache.image_for(release, "Hasivo S1100P-8GT-1SX-S") is None
         assert len(downloads) == 4  # checked once per release
     run_cache(check, all_boards=True)
+
+
+def test_pcb_survives_a_renamed_model():
+    """The original renamed the model of a board (#865): the PCB name stays."""
+    image = make_image("MokerLink ZX-SWTGW218AS", "PCB_SWTG118AS_V2_0_16029")
+    assert image_for_board(image, "PCB_SWTG118AS_V2_0_16029")
+    assert not image_for_board(image, "SWTGW218AS 8+1 Managed Switch")
+    assert not image_for_board(image, "PCB_SWTG115AS_V2_0_16030")
+
+
+def test_release_version_with_build_date():
+    data = {"tag_name": "t", "assets": [
+        {"name": "rtlplayground-v0.1.0-20261111-8fac378-p4-MOKERLINK_ZX_SWTGW218AS.bin", "browser_download_url": "u"},
+    ]}
+    r = parse_release(data)
+    assert r.version == "v0.1.0-20261111-8fac378-p4"
+    assert r.assets[0].board == "MOKERLINK_ZX_SWTGW218AS"

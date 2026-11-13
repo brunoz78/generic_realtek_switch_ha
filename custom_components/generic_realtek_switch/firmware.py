@@ -2,9 +2,10 @@
 
 A release carries one 512 KiB image per board, named like
 rtlplayground-v0.1.0-e67c928-p5-KP_9000_9XHML_X_V3_1.bin. Which one fits a
-switch is told by the board name the firmware reports as hw_ver: every image
-contains its board name as a NUL-terminated string, the same check the web
-interface makes before an upload.
+switch is told by the PCB configuration the firmware reports as pcb_ver, or by
+its board name (hw_ver) on firmware too old to report one: every image contains
+both as NUL-terminated strings, the same check the web interface makes before an
+upload. The PCB name stays when the original renames a board or its model name.
 """
 from __future__ import annotations
 
@@ -77,7 +78,8 @@ def image_valid(image: bytes) -> bool:
 
 
 def image_for_board(image: bytes, board_name: str) -> bool:
-    """True if the image was built for the board that reports board_name."""
+    """True if the image was built for the board that reports board_name
+    (its pcb_ver, or its hw_ver on older firmware)."""
     return bool(board_name) and (board_name.encode("latin-1", "replace") + b"\x00") in image
 
 
@@ -121,13 +123,18 @@ class ReleaseCache:
             _LOGGER.warning("Download of %s failed: %s", asset.name, exc)
             return None
 
-    async def image_for(self, release: FirmwareRelease, board_name: str) -> bytes | None:
-        """Download the images of a release until one fits the board."""
+    async def image_for(
+        self, release: FirmwareRelease, board_name: str, hint: str = ""
+    ) -> bytes | None:
+        """Download the images of a release until one fits the board.
+
+        hint (the model name) only decides which images are tried first.
+        """
         known = self._fits.get((release.tag, board_name), ...)
         if known is None:
             return None  # checked before: no image of this release fits
         # The board target usually resembles the reported name: try those first
-        key = re.sub(r"[^A-Z0-9]", "", board_name.upper())
+        key = re.sub(r"[^A-Z0-9]", "", (hint or board_name).upper())
         ordered = sorted(
             release.assets,
             key=lambda a: (a.name != known, a.board.replace("_", "") not in key),
@@ -150,9 +157,11 @@ class ReleaseCache:
             self._fits[(release.tag, board_name)] = None
         return None
 
-    async def has_image_for(self, release: FirmwareRelease, board_name: str) -> bool:
+    async def has_image_for(
+        self, release: FirmwareRelease, board_name: str, hint: str = ""
+    ) -> bool:
         """Whether the release holds an image for the board; checked once per release."""
         async with self._fit_lock:
             if (release.tag, board_name) not in self._fits:
-                await self.image_for(release, board_name)
+                await self.image_for(release, board_name, hint)
             return self._fits.get((release.tag, board_name)) is not None

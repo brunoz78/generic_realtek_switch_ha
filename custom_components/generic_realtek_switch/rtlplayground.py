@@ -340,6 +340,7 @@ class RtlPlaygroundClient:
             temperature=_temperature(info.get("chip_temp")),
             hostname=info.get("hostname", ""),
             uptime_seconds=_hex(info.get("uptime")),
+            pcb=_pcb(info.get("pcb_ver")),
         )
 
     # ------------------------------------------------------------------
@@ -475,6 +476,12 @@ def _temperature(raw: Any) -> float | None:
     """"45.3 C" → 45.3"""
     m = re.match(r"\s*(-?\d+(?:\.\d+)?)", raw) if isinstance(raw, str) else None
     return float(m.group(1)) if m else None
+
+
+def _pcb(raw: Any) -> str:
+    """pcb_ver as reported; "unknown" when the firmware was built without one."""
+    pcb = raw.strip() if isinstance(raw, str) else ""
+    return "" if pcb.lower() == "unknown" else pcb
 
 
 def _merge_ports(ports: Any, traffic: Any) -> list[dict[str, Any]]:
